@@ -1,0 +1,84 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default-deny catch-all (safety net)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions for validating incoming data types and lengths
+    function isValidString(val, minLen, maxLen) {
+      return val is string && val.size() >= minLen && val.size() <= maxLen;
+    }
+
+    function isValidTimestamp(val) {
+      return val is timestamp;
+    }
+
+    function isValidInteger(val, minVal, maxVal) {
+      return val is int && val >= minVal && val <= maxVal;
+    }
+
+    // Dish Schema Validation
+    function isValidDish(data) {
+      return isValidString(data.name, 1, 150)
+        && (!('description' in data) || isValidString(data.description, 0, 1000))
+        && (!('cuisine' in data) || isValidString(data.cuisine, 0, 100))
+        && (!('imageUrl' in data) || isValidString(data.imageUrl, 0, 2048))
+        && isValidString(data.addedBy, 1, 100)
+        && isValidTimestamp(data.createdAt);
+    }
+
+    // Rating Schema Validation
+    function isValidRating(data) {
+      return isValidInteger(data.score, 1, 10)
+        && isValidString(data.ratedBy, 1, 100)
+        && isValidTimestamp(data.updatedAt);
+    }
+
+    // PlannedMeal Schema Validation
+    function isValidPlannedMeal(data) {
+      return isValidString(data.dishId, 1, 100)
+        && isValidString(data.plannedDate, 10, 10)
+        && isValidTimestamp(data.createdAt);
+    }
+
+    // Member Schema Validation
+    function isValidMember(data) {
+      return isValidString(data.name, 1, 100)
+        && isValidTimestamp(data.createdAt);
+    }
+
+    // Dishes Collection Rules
+    match /dishes/{dishId} {
+      allow read: if true;
+      allow create: if isValidDish(request.resource.data);
+      allow update: if isValidDish(request.resource.data);
+      allow delete: if true;
+    }
+
+    // Subcollection for Individual Star Ratings (supports collection group query)
+    match /{path=**}/ratings/{memberId} {
+      allow read: if true;
+      allow create: if isValidRating(request.resource.data);
+      allow update: if isValidRating(request.resource.data);
+      allow delete: if true;
+    }
+
+    // Members Collection Rules
+    match /members/{memberId} {
+      allow read: if true;
+      allow create: if isValidMember(request.resource.data);
+      allow update: if isValidMember(request.resource.data);
+      allow delete: if true;
+    }
+
+    // Planned Meals Collection Rules
+    match /planned_meals/{mealId} {
+      allow read: if true;
+      allow create: if isValidPlannedMeal(request.resource.data);
+      allow update: if isValidPlannedMeal(request.resource.data);
+      allow delete: if true;
+    }
+  }
+}

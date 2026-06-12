@@ -1,0 +1,6 @@
+{
+  "name": "Wat Eten We?",
+  "description": "Een gedeelde familie-app waarin gezinsleden gegeten gerechten beoordelen en via een draaiend rad gezamenlijke avondeten-inspiratie opdoen.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

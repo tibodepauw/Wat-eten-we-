@@ -1,0 +1,89 @@
+{
+  "entities": {
+    "Dish": {
+      "title": "Dish",
+      "description": "A family dish for dinner selection",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the dish"
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional description of the recipe or ingredients"
+        },
+        "cuisine": {
+          "type": "string",
+          "description": "Optional cuisine style, like Italian, Asian, Belgian, etc."
+        },
+        "imageUrl": {
+          "type": "string",
+          "description": "Optional direct image URL for the dish"
+        },
+        "createdAt": {
+          "type": "object",
+          "format": "date-time",
+          "description": "Creation timestamp as firestore timestamp"
+        },
+        "addedBy": {
+          "type": "string",
+          "description": "Name of the family member who added this item"
+        }
+      },
+      "required": ["name", "createdAt", "addedBy"]
+    },
+    "Rating": {
+      "title": "Rating",
+      "description": "Individual member's rating of a dish (1 to 5)",
+      "type": "object",
+      "properties": {
+        "score": {
+          "type": "integer",
+          "description": "Rating score from 1 to 5 stars"
+        },
+        "ratedBy": {
+          "type": "string",
+          "description": "Name of the member giving the rating"
+        },
+        "updatedAt": {
+          "type": "object",
+          "format": "date-time",
+          "description": "Last updated timestamp of rating"
+        }
+      },
+      "required": ["score", "ratedBy", "updatedAt"]
+    },
+    "Member": {
+      "title": "Member",
+      "description": "A family member's registered name profile",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Family member's name"
+        },
+        "createdAt": {
+          "type": "object",
+          "format": "date-time",
+          "description": "When this member was added to settings"
+        }
+      },
+      "required": ["name", "createdAt"]
+    }
+  },
+  "firestore": {
+    "dishes/{dishId}": {
+      "schema": "Dish",
+      "description": "Global collection of all dishes registered by the family"
+    },
+    "dishes/{dishId}/ratings/{memberId}": {
+      "schema": "Rating",
+      "description": "A subcollection representing star ratings from individual family members"
+    },
+    "members/{memberId}": {
+      "schema": "Member",
+      "description": "A collection representing active members of the family"
+    }
+  }
+}
