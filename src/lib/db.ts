@@ -278,5 +278,116 @@ export const MealDatabase = {
       list = list.filter((item: any) => item.id !== id);
       localStorage.setItem('we_planned_meals', JSON.stringify(list));
     }
+  },
+
+  // Shopping List real-time subscription
+  subscribeShoppingList(callback: (items: any[]) => void) {
+    let active = true;
+    let lastJSON = '';
+
+    const poll = async () => {
+      try {
+        const data = await fetchJSON('/api/shopping_list');
+        if (!active) return;
+        const serialized = JSON.stringify(data);
+        if (serialized !== lastJSON) {
+          lastJSON = serialized;
+          callback(data.map((item: any) => ({
+            ...item,
+            createdAt: new Date(item.createdAt)
+          })));
+        }
+      } catch (error) {
+        console.warn("Backend shopping list fetch failed, falling back to localStorage.", error);
+        const raw = localStorage.getItem('we_shopping_list') || '[]';
+        const list = JSON.parse(raw);
+        callback(list.map((item: any) => ({
+          ...item,
+          createdAt: new Date(item.createdAt)
+        })));
+      }
+    };
+
+    poll();
+    const handle = setInterval(poll, 2500);
+    return () => {
+      active = false;
+      clearInterval(handle);
+    };
+  },
+
+  async addShoppingItems(items: any | any[]): Promise<void> {
+    try {
+      await fetchJSON('/api/shopping_list', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(items)
+      });
+    } catch (e) {
+      console.warn("Backend addShoppingItems failed, adding to local storage", e);
+      const raw = localStorage.getItem('we_shopping_list') || '[]';
+      const list = JSON.parse(raw);
+      const incoming = Array.isArray(items) ? items : [items];
+      
+      incoming.forEach(it => {
+        list.push({
+          ...it,
+          id: Math.random().toString(36).substring(2, 11),
+          createdAt: new Date().toISOString()
+        });
+      });
+      localStorage.setItem('we_shopping_list', JSON.stringify(list));
+    }
+  },
+
+  async updateShoppingItem(id: string, updates: any): Promise<void> {
+    try {
+      await fetchJSON(`/api/shopping_list/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+    } catch (e) {
+      console.warn("Backend updateShoppingItem failed, updating localStorage", e);
+      const raw = localStorage.getItem('we_shopping_list') || '[]';
+      const list = JSON.parse(raw);
+      const idx = list.findIndex((item: any) => item.id === id);
+      if (idx !== -1) {
+        list[idx] = { ...list[idx], ...updates };
+        localStorage.setItem('we_shopping_list', JSON.stringify(list));
+      }
+    }
+  },
+
+  async deleteShoppingItem(id: string): Promise<void> {
+    try {
+      await fetchJSON(`/api/shopping_list/${id}`, { method: 'DELETE' });
+    } catch (e) {
+      console.warn("Backend deleteShoppingItem failed, deleting from localStorage", e);
+      const raw = localStorage.getItem('we_shopping_list') || '[]';
+      let list = JSON.parse(raw);
+      list = list.filter((item: any) => item.id !== id);
+      localStorage.setItem('we_shopping_list', JSON.stringify(list));
+    }
+  },
+
+  async clearShoppingList(type: 'completed' | 'all'): Promise<void> {
+    try {
+      await fetchJSON('/api/shopping_list/clear', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type })
+      });
+    } catch (e) {
+      console.warn("Backend clearShoppingList failed, clearing localStorage", e);
+      const raw = localStorage.getItem('we_shopping_list') || '[]';
+      let list = JSON.parse(raw);
+      if (type === 'completed') {
+        list = list.filter((item: any) => !item.completed);
+      } else {
+        list = [];
+      }
+      localStorage.setItem('we_shopping_list', JSON.stringify(list));
+    }
   }
 };

@@ -34,6 +34,14 @@ const DEFAULT_DB = {
       imageUrl: 'https://images.unsplash.com/photo-1576107232684-1279f390859f?w=600&auto=format&fit=crop',
       tags: ['Klassieker', 'Comfort Food', 'Vlees'],
       suitableMoments: ['Warm eten'],
+      ingredients: [
+        { name: 'Runderlappen', amount: '1 kg', category: 'Vlees & Vis' },
+        { name: 'Grote uien', amount: '4 stuks', category: 'Groenten & Fruit' },
+        { name: 'Bruin bier (bijv. Sint Bernardus)', amount: '2 flesjes', category: 'Kruidenier & Droogwaren' },
+        { name: 'Sneetje bruin brood', amount: '1 plak', category: 'Bakkerij' },
+        { name: 'Mosterd', amount: '2 el', category: 'Kruidenier & Droogwaren' },
+        { name: 'Frites', amount: '1 kg', category: 'Overig' }
+      ],
       recipe: '1. Snijd de runderlappen in blokjes en bestrooi met zout en peper.\n2. Bak het vlees bruin in boter.\n3. Voeg gesnipperde uien toe en bak mee.\n4. Blus af met bruin bier en runderbouillon.\n5. Voeg een snee brood met mosterd en kruiden toe.\n6. Laat 3 uur zachtjes stoven.\n7. Serveer met vers gebakken frietjes en mayonaise.',
       createdAt: new Date().toISOString(),
       addedBy: 'Papa'
@@ -46,6 +54,15 @@ const DEFAULT_DB = {
       imageUrl: 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=600&auto=format&fit=crop',
       tags: ['Pasta', 'Snel', 'Favoriet'],
       suitableMoments: ['Warm eten'],
+      ingredients: [
+        { name: 'Rundergehakt', amount: '500g', category: 'Vlees & Vis' },
+        { name: 'Spaghetti', amount: '1 pak', category: 'Kruidenier & Droogwaren' },
+        { name: 'Gepelde tomaten', amount: '1 blik', category: 'Kruidenier & Droogwaren' },
+        { name: 'Wortel', amount: '1 stuk', category: 'Groenten & Fruit' },
+        { name: 'Bleekselderij', amount: '1 stengel', category: 'Groenten & Fruit' },
+        { name: 'Ui', amount: '1 stuk', category: 'Groenten & Fruit' },
+        { name: 'Parmezaanse kaas', amount: '100g', category: 'Zuivel' }
+      ],
       recipe: '1. Kook de spaghetti volgens de verpakking al dente.\n2. Fruit ui en knoflook in olijfol.\n3. Voeg gehakt toe en rul het bruin.\n4. Voeg fijngesneden wortel, bleekselderij en tomatenpuree toe.\n5. Voeg gepelde tomaten en Italiaanse kruiden toe.\n6. Laat 30 minuten sudderen.\n7. Bestrooi met Parmezaanse kaas.',
       createdAt: new Date().toISOString(),
       addedBy: 'Mama'
@@ -58,6 +75,13 @@ const DEFAULT_DB = {
       imageUrl: 'https://images.unsplash.com/photo-1528207776546-365bb710ee93?w=600&auto=format&fit=crop',
       tags: ['Zoet', 'Kinderen', 'Snel'],
       suitableMoments: ['Ontbijt', 'Vieruurtje', 'Warm eten'],
+      ingredients: [
+        { name: 'Bloem', amount: '250g', category: 'Kruidenier & Droogwaren' },
+        { name: 'Eieren', amount: '2 stuks', category: 'Zuivel' },
+        { name: 'Melk', amount: '500ml', category: 'Zuivel' },
+        { name: 'Snufje zout', amount: '1 snuf', category: 'Kruidenier & Droogwaren' },
+        { name: 'Stroop / Poedersuiker', amount: 'naar smaak', category: 'Kruidenier & Droogwaren' }
+      ],
       recipe: '1. Meng 250g bloem en een snuf zout.\n2. Voeg 2 eieren en de helft van 500ml melk toe.\n3. Klop tot een glad beslag en voeg de rest van de melk toe.\n4. Verhit boter in een koekenpan.\n5. Giet beslag erin en bak goudbruin aan beide kanten.\n6. Serveer warm met stroop of poedersuiker.',
       createdAt: new Date().toISOString(),
       addedBy: 'Tibo'
@@ -70,6 +94,14 @@ const DEFAULT_DB = {
       imageUrl: 'https://images.unsplash.com/photo-1455619452474-d2be8b1e70cd?w=600&auto=format&fit=crop',
       tags: ['Pittig', 'Gezond', 'Rijst'],
       suitableMoments: ['Warm eten'],
+      ingredients: [
+        { name: 'Kipdijfilet', amount: '400g', category: 'Vlees & Vis' },
+        { name: 'Pandanrijst', amount: '1 pak', category: 'Kruidenier & Droogwaren' },
+        { name: 'Kokosmelk', amount: '1 blik', category: 'Kruidenier & Droogwaren' },
+        { name: 'Rode currypasta', amount: '2 el', category: 'Kruidenier & Droogwaren' },
+        { name: 'Rode paprika', amount: '1 stuk', category: 'Groenten & Fruit' },
+        { name: 'Boontjes', amount: '150g', category: 'Groenten & Fruit' }
+      ],
       recipe: '1. Kook pandanrijst.\n2. Fruit rode currypasta in een scheutje olie.\n3. Voeg kipdijfilet in reepjes toe en bak rondom bruin.\n4. Giet kokosmelk erbij en breng aan de kook.\n5. Voeg groenten (paprika, bamboescheuten, boontjes) toe.\n6. Laat 15 minuten pruttelen.\n7. Garneer met verse koriander.',
       createdAt: new Date().toISOString(),
       addedBy: 'Mama'
@@ -81,7 +113,8 @@ const DEFAULT_DB = {
     '3': { 'Papa': 6, 'Mama': 6, 'Tibo': 10, 'Briek': 9 },
     '4': { 'Papa': 8, 'Mama': 10, 'Tibo': 4, 'Briek': 5 }
   },
-  planned_meals: []
+  planned_meals: [],
+  shopping_list: []
 };
 
 // Helper: Read database
@@ -259,6 +292,99 @@ app.delete('/api/planned_meals/:id', (req, res) => {
   db.planned_meals = (db.planned_meals || []).filter((m: any) => m.id !== id);
   writeDB(db);
   res.json({ success: true });
+});
+
+// --- Shopping List Endpoints ---
+
+// GET: Fetch all shopping list items
+app.get('/api/shopping_list', (req, res) => {
+  const db = readDB();
+  res.json(db.shopping_list || []);
+});
+
+// POST: Add new item(s) to shopping list
+app.post('/api/shopping_list', (req, res) => {
+  const body = req.body;
+  const db = readDB();
+  if (!db.shopping_list) db.shopping_list = [];
+
+  const addSingleItem = (itemObj: any) => {
+    const generatedId = Math.random().toString(36).substring(2, 11);
+    const newItem = {
+      id: generatedId,
+      name: itemObj.name || 'Onbekend',
+      amount: itemObj.amount || '',
+      category: itemObj.category || 'Overig',
+      completed: !!itemObj.completed,
+      addedBy: itemObj.addedBy || 'Systeem',
+      createdAt: new Date().toISOString()
+    };
+    db.shopping_list.push(newItem);
+    return newItem;
+  };
+
+  if (Array.isArray(body)) {
+    const addedItems = body.map(item => addSingleItem(item));
+    writeDB(db);
+    res.json(addedItems);
+  } else {
+    if (!body || !body.name) {
+      res.status(400).json({ error: 'Naam is verplicht.' });
+      return;
+    }
+    const addedItem = addSingleItem(body);
+    writeDB(db);
+    res.json(addedItem);
+  }
+});
+
+// PUT: Modify an item (e.g. toggle checkbox or update details)
+app.put('/api/shopping_list/:id', (req, res) => {
+  const { id } = req.params;
+  const updates = req.body;
+  const db = readDB();
+  if (!db.shopping_list) db.shopping_list = [];
+
+  const index = db.shopping_list.findIndex((item: any) => item.id === id);
+  if (index !== -1) {
+    db.shopping_list[index] = {
+      ...db.shopping_list[index],
+      ...updates
+    };
+    writeDB(db);
+    res.json(db.shopping_list[index]);
+  } else {
+    res.status(404).json({ error: 'Item niet gevonden.' });
+  }
+});
+
+// DELETE: Delete a shopping list item
+app.delete('/api/shopping_list/:id', (req, res) => {
+  const { id } = req.params;
+  const db = readDB();
+  db.shopping_list = (db.shopping_list || []).filter((item: any) => item.id !== id);
+  writeDB(db);
+  res.json({ success: true });
+});
+
+// POST: Clear shopping list items (batch)
+// Body: { type: 'completed' | 'all' }
+app.post('/api/shopping_list/clear', (req, res) => {
+  const { type } = req.body;
+  const db = readDB();
+  if (!db.shopping_list) db.shopping_list = [];
+
+  if (type === 'completed') {
+    db.shopping_list = db.shopping_list.filter((item: any) => !item.completed);
+  } else if (type === 'all') {
+    db.shopping_list = [];
+  } else {
+    res.status(400).json({ error: 'Ongeldig type. Gebruik completed of all.' });
+    return;
+  }
+  
+  writeDB(db);
+  res.json({ success: true, count: db.shopping_list.length });
 });
 
 // Start server

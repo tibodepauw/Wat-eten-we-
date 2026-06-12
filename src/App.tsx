@@ -21,7 +21,7 @@ import {
   Alert,
   Snackbar,
 } from '@mui/material';
-import { ChefHat, List, Plus, Settings, UserCheck, Calendar as CalendarIcon } from 'lucide-react';
+import { ChefHat, List, Plus, Settings, UserCheck, Calendar as CalendarIcon, ShoppingBag } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 import { appTheme } from './theme';
@@ -35,6 +35,7 @@ import DishList from './components/DishList';
 import AddDishForm from './components/AddDishForm';
 import SettingsPanel from './components/SettingsPanel';
 import CalendarView from './components/CalendarView';
+import ShoppingList from './components/ShoppingList';
 
 export default function App() {
   const [activeProfile, setActiveProfile] = useState<string | null>(null);
@@ -320,6 +321,11 @@ export default function App() {
                     onSuccess={() => setActiveTab('dishes')}
                   />
                 )}
+                {activeTab === 'shopping' && (
+                  <ShoppingList
+                    activeProfile={activeProfile || 'Gast'}
+                  />
+                )}
                 {activeTab === 'settings' && (
                   <SettingsPanel
                     activeProfile={activeProfile}
@@ -372,6 +378,11 @@ export default function App() {
               label="Kalender"
               value="calendar"
               icon={<CalendarIcon size={20} />}
+            />
+            <BottomNavigationAction
+              label="Lijstje"
+              value="shopping"
+              icon={<ShoppingBag size={20} />}
             />
             <BottomNavigationAction
               label="Voeg toe"

@@ -3,6 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+export interface Ingredient {
+  name: string;
+  amount?: string;
+  category: string; // 'Groenten & Fruit' | 'Zuivel' | 'Vlees & Vis' | 'Bakkerij' | 'Kruidenier & Droogwaren' | 'Overig'
+}
+
 export interface Dish {
   id: string;
   name: string;
@@ -12,6 +18,7 @@ export interface Dish {
   recipe?: string;
   tags?: string[];
   suitableMoments?: string[]; // E.g., ['Ontbijt', 'Warm eten', 'Vieruurtje', Koud eten]
+  ingredients?: Ingredient[];
   createdAt: any; // Firestore Timestamp or Date object
   addedBy: string;
 }
@@ -37,4 +44,14 @@ export interface PlannedMeal {
   createdAt: any;
 }
 
-export type TabValue = 'home' | 'dishes' | 'add' | 'settings' | 'calendar';
+export interface ShoppingItem {
+  id: string;
+  name: string;
+  amount?: string;
+  category: string; // e.g. 'Groenten & Fruit'
+  completed: boolean;
+  addedBy?: string;
+  createdAt: any;
+}
+
+export type TabValue = 'home' | 'dishes' | 'add' | 'settings' | 'calendar' | 'shopping';

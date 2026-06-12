@@ -14,14 +14,31 @@ import {
   Chip,
   Alert,
   Snackbar,
+  MenuItem,
+  Select,
+  InputLabel,
+  FormControl,
+  IconButton
 } from '@mui/material';
-import { Plus, Tag, Link as LinkIcon, FileText, ChefHat } from 'lucide-react';
+import { Plus, Tag, Link as LinkIcon, FileText, ChefHat, Trash2, ShoppingBag } from 'lucide-react';
 import { MealDatabase } from '../lib/db';
+import { Ingredient } from '../types';
 
 interface AddDishFormProps {
   activeProfile: string;
   onSuccess: () => void;
 }
+
+const SH_CATEGORIES = [
+  { value: 'Groenten & Fruit', label: '🥦 Groenten & Fruit' },
+  { value: 'Zuivel', label: '🥛 Zuivel' },
+  { value: 'Vlees & Vis', label: '🥩 Vlees & Vis' },
+  { value: 'Bakkerij', label: '🍞 Bakkerij' },
+  { value: 'Kruidenier & Droogwaren', label: '🥫 Kruidenier & Droogwaren' },
+  { value: 'Dranken & Snacks', label: '🥤 Dranken & Snacks' },
+  { value: 'Huishoudelijk & Verzorging', label: '🧼 Huishoudelijk & Verzorging' },
+  { value: 'Overig', label: '📦 Overig' }
+];
 
 const cuisinePresets = [
   'Italiaans',
@@ -45,9 +62,43 @@ export default function AddDishForm({ activeProfile, onSuccess }: AddDishFormPro
   const [newTagInput, setNewTagInput] = useState('');
   const [suitableMoments, setSuitableMoments] = useState<string[]>(['Warm eten']);
   
+  // Ingredients management
+  const [ingredients, setIngredients] = useState<Ingredient[]>([]);
+  const [newIngName, setNewIngName] = useState('');
+  const [newIngAmount, setNewIngAmount] = useState('');
+  const [newIngCategory, setNewIngCategory] = useState('Groenten & Fruit');
+
   const [loading, setLoading] = useState(false);
   const [errorText, setErrorText] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
+
+  const handleAddIngredient = () => {
+    const trimmed = newIngName.trim();
+    if (!trimmed) return;
+    
+    // Prevent duplicate ingredient names
+    if (ingredients.some(ing => ing.name.toLowerCase() === trimmed.toLowerCase())) {
+      setErrorText('Dit ingrediënt staat al in de lijst!');
+      return;
+    }
+
+    setIngredients([
+      ...ingredients,
+      {
+        name: trimmed,
+        amount: newIngAmount.trim() || undefined,
+        category: newIngCategory
+      }
+    ]);
+    
+    setNewIngName('');
+    setNewIngAmount('');
+    setErrorText('');
+  };
+
+  const handleRemoveIngredient = (index: number) => {
+    setIngredients(ingredients.filter((_, i) => i !== index));
+  };
 
   const handleToggleMoment = (moment: string) => {
     if (suitableMoments.includes(moment)) {
@@ -120,6 +171,7 @@ export default function AddDishForm({ activeProfile, onSuccess }: AddDishFormPro
         recipe: recipe.trim() || undefined,
         tags: tags.length > 0 ? tags : undefined,
         suitableMoments: suitableMoments,
+        ingredients: ingredients.length > 0 ? ingredients : undefined,
         addedBy: activeProfile
       });
 
@@ -138,6 +190,7 @@ export default function AddDishForm({ activeProfile, onSuccess }: AddDishFormPro
         setImageUrl('');
         setRecipe('');
         setTags([]);
+        setIngredients([]);
         setSuitableMoments(['Warm eten']);
       }, 1500);
 
@@ -316,6 +369,140 @@ export default function AddDishForm({ activeProfile, onSuccess }: AddDishFormPro
                   />
                 ))}
               </Box>
+            </Box>
+
+            {/* Ingredients Section */}
+            <Box sx={{ border: '1px solid #F0E0D6', borderRadius: '16px', p: 3, backgroundColor: '#FAF7F5' }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 1, color: '#311300', display: 'flex', alignItems: 'center', gap: 1 }}>
+                <ShoppingBag size={18} className="text-amber-700" /> Ingrediënten (voor op de boodschappenlijst)
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
+                Voeg hier ingrediënten toe. Gezinsleden kunnen deze later met één klik toevoegen aan het gezamenlijk boodschappenlijstje!
+              </Typography>
+              
+              {/* Add form */}
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '2fr 1fr 1.5fr auto' }, gap: 1.5, alignItems: 'flex-start', mb: 2.5 }}>
+                <TextField
+                  size="small"
+                  label="Ingrediënt naam"
+                  value={newIngName}
+                  onChange={(e) => setNewIngName(e.target.value)}
+                  placeholder="Bijv. Kipfilet, Tomaat"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddIngredient();
+                    }
+                  }}
+                  sx={{ backgroundColor: '#ffffff', borderRadius: '8px' }}
+                />
+                <TextField
+                  size="small"
+                  label="Hoeveelheid"
+                  value={newIngAmount}
+                  onChange={(e) => setNewIngAmount(e.target.value)}
+                  placeholder="Bijv. 400g, 3 stuks"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddIngredient();
+                    }
+                  }}
+                  sx={{ backgroundColor: '#ffffff', borderRadius: '8px' }}
+                />
+                <FormControl size="small" fullWidth>
+                  <InputLabel id="ing-cat-label">Categorie</InputLabel>
+                  <Select
+                    labelId="ing-cat-label"
+                    value={newIngCategory}
+                    label="Categorie"
+                    onChange={(e) => setNewIngCategory(e.target.value)}
+                    sx={{ borderRadius: '12px', backgroundColor: '#ffffff' }}
+                  >
+                    {SH_CATEGORIES.map((cat) => (
+                      <MenuItem key={cat.value} value={cat.value}>
+                        {cat.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <Button
+                  variant="contained"
+                  onClick={handleAddIngredient}
+                  sx={{
+                    height: 40,
+                    borderRadius: '12px',
+                    textTransform: 'none',
+                    fontWeight: 800,
+                  }}
+                >
+                  Voeg toe
+                </Button>
+              </Box>
+
+              {/* Added ingredients list */}
+              {ingredients.length > 0 ? (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  {ingredients.map((ing, idx) => {
+                    const catLabel = SH_CATEGORIES.find(c => c.value === ing.category)?.label || ing.category;
+                    return (
+                      <Box
+                        key={idx}
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          px: 2,
+                          py: 1,
+                          borderRadius: '12px',
+                          backgroundColor: '#ffffff',
+                          border: '1px solid #F0E0D6',
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                          <Typography variant="body2" sx={{ fontWeight: 800, color: '#311300' }}>
+                            {ing.name}
+                          </Typography>
+                          {ing.amount && (
+                            <Chip
+                              label={ing.amount}
+                              size="small"
+                              sx={{
+                                height: 20,
+                                fontSize: '0.75rem',
+                                fontWeight: 700,
+                                backgroundColor: 'rgba(143, 78, 0, 0.08)',
+                                color: '#8F4E00',
+                              }}
+                            />
+                          )}
+                          <Chip
+                            label={catLabel}
+                            size="small"
+                            variant="outlined"
+                            sx={{
+                              height: 20,
+                              fontSize: '0.72rem',
+                              borderColor: '#F0E0D6'
+                            }}
+                          />
+                        </Box>
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => handleRemoveIngredient(idx)}
+                        >
+                          <Trash2 size={16} />
+                        </IconButton>
+                      </Box>
+                    );
+                  })}
+                </Box>
+              ) : (
+                <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', textAlign: 'center', py: 1 }}>
+                  Nog geen ingrediënten toegevoegd aan dit gerecht.
+                </Typography>
+              )}
             </Box>
 
             {/* Description (details) */}

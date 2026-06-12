@@ -26,7 +26,7 @@ import {
   Button,
   IconButton
 } from '@mui/material';
-import { Search, Calendar, User, Tag, Star, Trash2, X } from 'lucide-react';
+import { Search, Calendar, User, Tag, Star, Trash2, X, Plus, Check, ShoppingBag, ShoppingCart } from 'lucide-react';
 import { Dish, Rating as RatingType, Member } from '../types';
 import { MealDatabase } from '../lib/db';
 import { getAvatarColor } from './ProfilePicker';
@@ -45,6 +45,52 @@ export default function DishList({ dishes, ratingsMap, members, activeProfile }:
   const [sortBy, setSortBy] = useState<SortOption>('rating');
   const [selectedDish, setSelectedDish] = useState<Dish | null>(null);
   const [openDeleteConfirm, setOpenDeleteConfirm] = useState(false);
+  const [addedIngMap, setAddedIngMap] = useState<{ [key: string]: boolean }>({});
+  const [addingAllLoading, setAddingAllLoading] = useState(false);
+
+  const handleCloseDetail = () => {
+    setSelectedDish(null);
+    setAddedIngMap({});
+  };
+
+  const handleAddSingleIngredientItem = async (ing: any) => {
+    try {
+      await MealDatabase.addShoppingItems({
+        name: ing.name,
+        amount: ing.amount || '',
+        category: ing.category || 'Overig',
+        completed: false,
+        addedBy: activeProfile
+      });
+      setAddedIngMap(prev => ({ ...prev, [ing.name]: true }));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleAddAllIngredients = async (ings: any[]) => {
+    setAddingAllLoading(true);
+    try {
+      const itemsToPost = ings.map(ing => ({
+        name: ing.name,
+        amount: ing.amount || '',
+        category: ing.category || 'Overig',
+        completed: false,
+        addedBy: activeProfile
+      }));
+      await MealDatabase.addShoppingItems(itemsToPost);
+      
+      const updatedMap = { ...addedIngMap };
+      ings.forEach(ing => {
+        updatedMap[ing.name] = true;
+      });
+      setAddedIngMap(updatedMap);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setAddingAllLoading(false);
+    }
+  };
 
   // Calculate stats for a given dish
   const getDishStats = (dishId: string) => {
@@ -277,7 +323,7 @@ export default function DishList({ dishes, ratingsMap, members, activeProfile }:
       {/* DISH DETAILS AND INDIVIDUAL RATINGS SLIDE-UP DIALOG */}
       <Dialog
         open={!!selectedDish}
-        onClose={() => setSelectedDish(null)}
+        onClose={handleCloseDetail}
         maxWidth="md"
         fullWidth
         scroll="paper"
@@ -295,7 +341,7 @@ export default function DishList({ dishes, ratingsMap, members, activeProfile }:
           <>
             {/* Elegant Translucent Close X Button in the top right */}
             <IconButton
-              onClick={() => setSelectedDish(null)}
+              onClick={handleCloseDetail}
               sx={{
                 position: 'absolute',
                 right: 16,
@@ -411,6 +457,92 @@ export default function DishList({ dishes, ratingsMap, members, activeProfile }:
                       </Box>
                     </Box>
                   )}
+
+                  {/* Ingredients section */}
+                  <Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                      <Typography variant="h6" sx={{ fontWeight: 800, color: '#8F4E00', fontSize: '0.95rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Ingrediënten
+                      </Typography>
+                      {selectedDish.ingredients && selectedDish.ingredients.length > 0 && (
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          startIcon={<ShoppingCart size={14} />}
+                          onClick={() => handleAddAllIngredients(selectedDish.ingredients || [])}
+                          disabled={addingAllLoading || selectedDish.ingredients.every(ing => addedIngMap[ing.name])}
+                          sx={{ textTransform: 'none', fontWeight: 800, borderRadius: '8px' }}
+                        >
+                          {selectedDish.ingredients.every(ing => addedIngMap[ing.name]) ? 'Alles toegevoegd' : 'Alles toevoegen'}
+                        </Button>
+                      )}
+                    </Box>
+
+                    {selectedDish.ingredients && selectedDish.ingredients.length > 0 ? (
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                        {selectedDish.ingredients.map((ing, idx) => {
+                          const isAlreadyAdded = !!addedIngMap[ing.name];
+                          return (
+                            <Box
+                              key={idx}
+                              sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                p: 1.5,
+                                borderRadius: '12px',
+                                border: '1px solid #F0E0D6',
+                                backgroundColor: isAlreadyAdded ? '#F2FFF0' : '#ffffff',
+                                borderColor: isAlreadyAdded ? '#A6EAA2' : '#F0E0D6',
+                                transition: 'all 0.2s',
+                              }}
+                            >
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Typography variant="body2" sx={{ fontWeight: 800, color: '#311300' }}>
+                                  {ing.name}
+                                </Typography>
+                                {ing.amount && (
+                                  <Chip
+                                    label={ing.amount}
+                                    size="small"
+                                    sx={{
+                                      height: 20,
+                                      fontSize: '0.7rem',
+                                      fontWeight: 800,
+                                      backgroundColor: 'rgba(143, 78, 0, 0.08)',
+                                      color: '#8F4E00',
+                                    }}
+                                  />
+                                )}
+                                <span style={{ fontSize: '0.72rem', color: '#8F4E00', opacity: 0.8, marginLeft: '4px' }}>
+                                  ({ing.category})
+                                </span>
+                              </Box>
+                              
+                              <Button
+                                size="small"
+                                variant="text"
+                                onClick={() => handleAddSingleIngredientItem(ing)}
+                                disabled={isAlreadyAdded}
+                                startIcon={isAlreadyAdded ? <Check size={14} /> : <Plus size={14} />}
+                                sx={{
+                                  textTransform: 'none',
+                                  fontWeight: 800,
+                                  color: isAlreadyAdded ? '#2E7D32' : 'primary.main',
+                                }}
+                              >
+                                {isAlreadyAdded ? 'Toegevoegd' : 'Op lijstje'}
+                              </Button>
+                            </Box>
+                          );
+                        })}
+                      </Box>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                        Geen ingrediëntenlijst geconfigureerd voor dit recept.
+                      </Typography>
+                    )}
+                  </Box>
 
                   {/* Recipe text section */}
                   {selectedDish.recipe && (
