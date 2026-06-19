@@ -29,7 +29,7 @@ import { MealDatabase } from './lib/db';
 import { Dish, Rating, Member, TabValue, PlannedMeal } from './types';
 
 // Child components
-import ProfilePicker, { getAvatarColor } from './components/ProfilePicker';
+import ProfilePicker, { getAvatarColor, avatarIconsMap } from './components/ProfilePicker';
 import SpinWheel from './components/SpinWheel';
 import DishList from './components/DishList';
 import AddDishForm from './components/AddDishForm';
@@ -52,12 +52,18 @@ export default function App() {
   const [members, setMembers] = useState<Member[]>([]);
   const [plannedMeals, setPlannedMeals] = useState<PlannedMeal[]>([]);
 
+  const briekAddedRef = React.useRef(false);
+
   // Self-healing Briek check: Automatically add Briek if he doesn't exist in Firestore/Local DB
   useEffect(() => {
     if (members.length > 0) {
       const hasBriek = members.some(m => m.name.toLowerCase() === 'briek');
-      if (!hasBriek) {
-        MealDatabase.addMember('Briek').catch(err => console.error('Error adding Briek:', err));
+      if (!hasBriek && !briekAddedRef.current) {
+        briekAddedRef.current = true;
+        MealDatabase.addMember('Briek').catch(err => {
+          console.error('Error adding Briek:', err);
+          briekAddedRef.current = false;
+        });
       }
     }
   }, [members]);
@@ -190,7 +196,7 @@ export default function App() {
                 sx={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 1.5,
+                  gap: { xs: 0, sm: 1.5 },
                   cursor: 'pointer',
                   '&:active': { transform: 'scale(0.975)' },
                   transition: 'transform 0.1s ease',
@@ -198,7 +204,7 @@ export default function App() {
               >
                 <Box
                   sx={{
-                    display: 'flex',
+                    display: { xs: 'none', sm: 'flex' },
                     alignItems: 'center',
                     justifyContent: 'center',
                     p: 1,
@@ -209,27 +215,56 @@ export default function App() {
                 >
                   <ChefHat size={22} strokeWidth={2.5} />
                 </Box>
-                <Typography variant="h5" sx={{ fontWeight: 900, fontFamily: '"Outfit", sans-serif', fontSize: '1.55rem', letterSpacing: '-0.04em', color: '#8F4E00' }}>
+                <Typography variant="h5" sx={{ fontWeight: 900, fontFamily: '"Outfit", sans-serif', fontSize: { xs: '1.25rem', sm: '1.55rem' }, letterSpacing: '-0.04em', color: '#8F4E00' }}>
                   Wat eten we?
                 </Typography>
               </Box>
 
               {/* Profile Pill & Settings Action Button */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Chip
-                  icon={<UserCheck size={14} style={{ color: '#8F4E00' }} />}
-                  label={`Aan tafel: ${activeProfile}`}
-                  sx={{
-                    fontWeight: 700,
-                    backgroundColor: '#FFDCC0',
-                    border: '1px solid #F0E0D6',
-                    color: '#311300',
-                    '& .MuiChip-icon': {
-                      color: '#8F4E00',
-                    },
-                    display: { xs: 'flex', sm: 'flex' },
-                  }}
-                />
+                {(() => {
+                  const activeMemberObj = members.find(m => m.name.toLowerCase() === activeProfile?.toLowerCase());
+                  const IconComp = activeMemberObj?.avatarIcon ? avatarIconsMap[activeMemberObj.avatarIcon] : null;
+                  const bgColor = activeMemberObj?.avatarColor || (activeProfile ? getAvatarColor(activeProfile) : '#8F4E00');
+                  
+                  return (
+                    <Chip
+                      avatar={
+                        <Avatar
+                          sx={{
+                            backgroundColor: bgColor,
+                            color: '#ffffff !important',
+                            fontWeight: 'bold',
+                            width: 24,
+                            height: 24,
+                            fontSize: '0.65rem'
+                          }}
+                        >
+                          {IconComp ? (
+                            <IconComp size={12} strokeWidth={2.5} />
+                          ) : (
+                            activeMemberObj?.avatarLetter || activeProfile?.charAt(0).toUpperCase()
+                          )}
+                        </Avatar>
+                      }
+                      label={
+                        <Box component="span">
+                          <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>Aan tafel: </Box>
+                          {activeProfile}
+                        </Box>
+                      }
+                      sx={{
+                        fontWeight: 700,
+                        backgroundColor: '#FFDCC0',
+                        border: '1px solid #F0E0D6',
+                        color: '#311300',
+                        display: 'flex',
+                        alignItems: 'center',
+                        pl: 0.5
+                      }}
+                    />
+                  );
+                })()}
                 
                 <IconButton
                   onClick={() => setActiveTab('settings')}

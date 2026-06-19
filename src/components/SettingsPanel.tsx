@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -16,11 +16,15 @@ import {
   Chip,
   Alert,
   Divider,
+  IconButton,
+  Tooltip
 } from '@mui/material';
-import { User, Plus, Database, Cloud, RefreshCw, AlertTriangle, HelpCircle } from 'lucide-react';
+import { 
+  User, Plus, Database, Cloud, RefreshCw, AlertTriangle, HelpCircle, Key, Palette, Image, Check, ChevronRight, Lock
+} from 'lucide-react';
 import { MealDatabase, isFirestoreFallback } from '../lib/db';
 import { Member } from '../types';
-import { getAvatarColor } from './ProfilePicker';
+import { getAvatarColor, avatarIconsMap } from './ProfilePicker';
 
 interface SettingsPanelProps {
   activeProfile: string;
@@ -29,31 +33,182 @@ interface SettingsPanelProps {
   onLogout: () => void;
 }
 
+const AVAILABLE_COLORS = [
+  '#8F4E00', // Warm Bronze/Amber
+  '#a26c4f', // Soft Terracotta
+  '#5a7862', // Sage Green
+  '#3d5a45', // Forest Green
+  '#f28f3b', // Muted Apricot
+  '#c0392b', // Deep Crimson
+  '#9b59b6', // Amethyst purple
+  '#16a085', // Dark Teal
+  '#3498db', // Light Steel Blue
+  '#2980b9', // Strong Blue
+  '#2c3e50', // Midnight Slate
+  '#e67e22', // Deep Orange
+];
+
+const PRESET_ICONS = [
+  { key: '', label: 'Geen (Letter)' },
+  { key: 'smile', label: 'Lachen' },
+  { key: 'heart', label: 'Hartje' },
+  { key: 'star', label: 'Ster' },
+  { key: 'flame', label: 'Vuur' },
+  { key: 'crown', label: 'Kroon' },
+  { key: 'shield', label: 'Schild' },
+  { key: 'trophy', label: 'Beker' },
+  { key: 'moon', label: 'Maan' },
+  { key: 'sun', label: 'Zon' },
+  { key: 'ghost', label: 'Spook' },
+  { key: 'music', label: 'Muziek' },
+  { key: 'coffee', label: 'Koffie' },
+  { key: 'pizza', label: 'Pizza' },
+  { key: 'cat', label: 'Kat' },
+  { key: 'dog', label: 'Hond' },
+  { key: 'apple', label: 'Appel' },
+  { key: 'cake', label: 'Taart' },
+  { key: 'user', label: 'Persoon' },
+];
+
 export default function SettingsPanel({ activeProfile, members, onSwitchProfile, onLogout }: SettingsPanelProps) {
-  const [newMemberName, setNewMemberName] = useState('');
-  const [errorText, setErrorText] = useState('');
-  const [loading, setLoading] = useState(false);
+  const activeMember = members.find(m => m.name.toLowerCase() === activeProfile.toLowerCase());
+
+  // Form states
+  const [profileName, setProfileName] = useState('');
+  const [profilePassword, setProfilePassword] = useState('');
+  const [avatarColor, setAvatarColor] = useState('#8F4E00');
+  const [avatarLetter, setAvatarLetter] = useState('U');
+  const [avatarIcon, setAvatarIcon] = useState('');
+
+  const [addMemberName, setAddMemberName] = useState('');
+  const [addMemberPassword, setAddMemberPassword] = useState('');
+
+  const [profileErrorText, setProfileErrorText] = useState('');
+  const [profileSuccessText, setProfileSuccessText] = useState('');
+  
+  const [addErrorText, setAddErrorText] = useState('');
+  const [addSuccessText, setAddSuccessText] = useState('');
+
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [addingMember, setAddingMember] = useState(false);
+
+  // Sync state values on load or user switch
+  useEffect(() => {
+    if (activeMember) {
+      const targetName = activeMember.name;
+      const targetPassword = activeMember.password || activeMember.name.toLowerCase();
+      const targetColor = activeMember.avatarColor || getAvatarColor(activeMember.name);
+      const targetLetter = activeMember.avatarLetter || activeMember.name.charAt(0).toUpperCase();
+      const targetIcon = activeMember.avatarIcon || '';
+
+      if (profileName !== targetName) setProfileName(targetName);
+      if (profilePassword !== targetPassword) setProfilePassword(targetPassword);
+      if (avatarColor !== targetColor) setAvatarColor(targetColor);
+      if (avatarLetter !== targetLetter) setAvatarLetter(targetLetter);
+      if (avatarIcon !== targetIcon) setAvatarIcon(targetIcon);
+      
+      setProfileErrorText('');
+      setProfileSuccessText('');
+    }
+  }, [
+    activeMember?.id,
+    activeMember?.name,
+    activeMember?.password,
+    activeMember?.avatarColor,
+    activeMember?.avatarLetter,
+    activeMember?.avatarIcon,
+    activeProfile
+  ]);
+
+  const handleSaveProfile = async () => {
+    if (!activeMember) return;
+    const trimName = profileName.trim();
+    const trimPass = profilePassword.trim();
+    const trimLetter = avatarLetter.trim().substring(0, 2);
+
+    if (!trimName) {
+      setProfileErrorText('Naam mag niet leeg zijn!');
+      return;
+    }
+    if (trimName.length > 20) {
+      setProfileErrorText('Naam mag maximaal 20 tekens zijn!');
+      return;
+    }
+    if (!trimPass) {
+      setProfileErrorText('Wachtwoord mag niet leeg zijn!');
+      return;
+    }
+
+    // Name conflict check if changed
+    if (trimName.toLowerCase() !== activeMember.name.toLowerCase()) {
+      const alreadyTaken = members.some(m => m.id !== activeMember.id && m.name.toLowerCase() === trimName.toLowerCase());
+      if (alreadyTaken) {
+        setProfileErrorText('Deze naam is al in gebruik door iemand anders!');
+        return;
+      }
+    }
+
+    setSavingProfile(true);
+    setProfileErrorText('');
+    setProfileSuccessText('');
+
+    try {
+      const resp = await MealDatabase.updateMember(activeMember.id, {
+        name: trimName,
+        password: trimPass,
+        avatarColor,
+        avatarLetter: trimLetter || trimName.charAt(0).toUpperCase(),
+        avatarIcon
+      });
+
+      setProfileSuccessText('Je profiel is succesvol aangepast!');
+      // Update session state
+      onSwitchProfile(trimName);
+    } catch (e: any) {
+      setProfileErrorText(e.message || 'Profiel kon niet worden bijgewerkt.');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
 
   const handleAddMember = async () => {
-    const trimmed = newMemberName.trim();
-    if (!trimmed) {
-      setErrorText('Naam mag niet leeg zijn!');
+    const trimName = addMemberName.trim();
+    const trimPass = addMemberPassword.trim();
+
+    if (!trimName) {
+      setAddErrorText('Naam mag niet leeg zijn!');
       return;
     }
-    if (trimmed.length > 20) {
-      setErrorText('Naam is te lang (max 20 tekens)');
+    if (trimName.length > 20) {
+      setAddErrorText('Naam is te lang (max 20 tekens)');
       return;
     }
-    if (members.some(m => m.name.toLowerCase() === trimmed.toLowerCase())) {
-      setErrorText('Dit gezinslid bestaat al!');
+    if (!trimPass) {
+      setAddErrorText('Wachtwoord mag niet leeg zijn!');
+      return;
+    }
+    if (members.some(m => m.name.toLowerCase() === trimName.toLowerCase())) {
+      setAddErrorText('Dit gezinslid bestaat al!');
       return;
     }
 
-    setLoading(true);
-    await MealDatabase.addMember(trimmed);
-    setNewMemberName('');
-    setErrorText('');
-    setLoading(false);
+    setAddingMember(true);
+    setAddErrorText('');
+    setAddSuccessText('');
+
+    try {
+      const letter = trimName.charAt(0).toUpperCase();
+      const color = getAvatarColor(trimName);
+
+      await MealDatabase.addMember(trimName, trimPass, color, letter, 'smile');
+      setAddMemberName('');
+      setAddMemberPassword('');
+      setAddSuccessText(`Gezinslid "${trimName}" is succesvol toegevoegd! Wachtwoord is ingesteld.`);
+    } catch (e: any) {
+      setAddErrorText(e.message || 'Kon gezinslid niet toevoegen.');
+    } finally {
+      setAddingMember(false);
+    }
   };
 
   const handleResetLocalDB = () => {
@@ -63,11 +218,213 @@ export default function SettingsPanel({ activeProfile, members, onSwitchProfile,
     }
   };
 
+  // Preview properties
+  const PreviewIcon = avatarIcon ? avatarIconsMap[avatarIcon] : null;
+
   return (
     <Box sx={{ width: '100%', py: 1, px: 1 }}>
       <Typography variant="h5" sx={{ fontWeight: 800, mb: 2, px: 1 }}>
-        Instellingen & Familie
+        Instellingen
       </Typography>
+
+      {/* Profilerings Customizer Panel (HIGHLIGHT NEW FEATURE) */}
+      <Card sx={{ mb: 3, border: '1px solid #FFDCC0', backgroundColor: '#FFFDFB' }}>
+        <CardContent sx={{ p: { xs: 2.5, sm: 3.5 } }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
+            <Palette size={22} className="text-amber-800" />
+            <Typography variant="h6" sx={{ fontWeight: 800, color: '#8F4E00' }}>
+              Profiel
+            </Typography>
+          </Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            Personaliseer je naam, kies je favoriete achtergrondkleur, stel een uniek symbool of een letter in, en beveilig je profiel met een eigen snelwachtwoord.
+          </Typography>
+
+          {profileErrorText && (
+            <Alert severity="error" sx={{ mb: 3, borderRadius: '12px' }}>
+              {profileErrorText}
+            </Alert>
+          )}
+
+          {profileSuccessText && (
+            <Alert severity="success" sx={{ mb: 3, borderRadius: '12px' }}>
+              {profileSuccessText}
+            </Alert>
+          )}
+
+          <Grid container spacing={3.5}>
+            {/* Left Column: Visual Avatar Preview & Name / Wachtwoord */}
+            <Grid size={{ xs: 12, md: 5 }} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRight: { md: '1px solid #F0E0D6' }, pr: { md: 3 } }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 2, color: 'text.secondary' }}>
+                Voorbeeld Weergave
+              </Typography>
+              
+              <Avatar
+                sx={{
+                  width: 90,
+                  height: 90,
+                  fontSize: '2rem',
+                  fontWeight: 'bold',
+                  backgroundColor: avatarColor,
+                  color: '#ffffff',
+                  mb: 2.5,
+                  boxShadow: '0px 6px 18px rgba(0,0,0,0.12)',
+                }}
+              >
+                {PreviewIcon ? (
+                  <PreviewIcon size={44} strokeWidth={2.3} />
+                ) : (
+                  avatarLetter || '?'
+                )}
+              </Avatar>
+
+              <Box sx={{ width: '100%', mt: 1 }}>
+                <TextField
+                  label="Mijn Naam"
+                  fullWidth
+                  size="small"
+                  variant="outlined"
+                  value={profileName}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val.length <= 20) {
+                      setProfileName(val);
+                      setProfileErrorText('');
+                      // Auto-update default active letter
+                      if (val.trim()) {
+                        setAvatarLetter(val.trim().charAt(0).toUpperCase());
+                      }
+                    }
+                  }}
+                  sx={{ mb: 2 }}
+                />
+
+                <TextField
+                  label="Mijn Snelwachtwoord"
+                  type="password"
+                  fullWidth
+                  size="small"
+                  variant="outlined"
+                  value={profilePassword}
+                  onChange={(e) => {
+                    setProfilePassword(e.target.value);
+                    setProfileErrorText('');
+                  }}
+                  placeholder="Typ nieuw wachtwoord"
+                  helperText="Om veilig in te loggen via het startscherm"
+                />
+              </Box>
+            </Grid>
+
+            {/* Right Column: Colors & Symbols options */}
+            <Grid size={{ xs: 12, md: 7 }}>
+              {/* Background color selection block */}
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Palette size={16} /> Kies Achtergrondkleur
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                  {AVAILABLE_COLORS.map((color) => (
+                    <Box
+                      key={color}
+                      onClick={() => setAvatarColor(color)}
+                      sx={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: '50%',
+                        backgroundColor: color,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        border: '2px solid transparent',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                        transform: avatarColor === color ? 'scale(1.15)' : 'none',
+                        borderColor: avatarColor === color ? '#ffffff' : 'transparent',
+                        outline: avatarColor === color ? `2px solid ${color}` : 'none',
+                        transition: 'all 0.15s ease',
+                        '&:hover': { transform: 'scale(1.1)' }
+                      }}
+                    >
+                      {avatarColor === color && <Check size={14} className="text-white font-bold" />}
+                    </Box>
+                  ))}
+                </Box>
+              </Box>
+
+              {/* Avatar Type: Letter or Icon selection */}
+              <Box sx={{ mb: 3.5 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Image size={16} /> Kies Letter of Symbool / Icon
+                </Typography>
+
+                <Box sx={{ display: 'flex', gap: 1.5, mb: 2 }}>
+                  <TextField
+                    label="Profiel Letter (max 2)"
+                    size="small"
+                    variant="outlined"
+                    value={avatarLetter}
+                    onChange={(e) => {
+                      setAvatarLetter(e.target.value.substring(0, 2));
+                      setAvatarIcon(''); // Clear icon choice to prioritize letter
+                    }}
+                    placeholder="P"
+                    sx={{ width: '130px' }}
+                    disabled={!!avatarIcon}
+                  />
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Typography variant="caption" color="text.secondary">
+                      {avatarIcon ? 'Symbool is geselecteerd. Wis de selectie om letter te gebruiken.' : 'Of kies hieronder een symbool:'}
+                    </Typography>
+                  </Box>
+                </Box>
+
+                {/* Preset Icons Selection list */}
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, maxHeight: '110px', overflowY: 'auto', p: 1, border: '1px solid #F0E0D6', borderRadius: '12px', backgroundColor: '#ffffff' }}>
+                  {PRESET_ICONS.map((preset) => {
+                    const PresetIcon = preset.key ? avatarIconsMap[preset.key] : null;
+                    const isSelected = avatarIcon === preset.key;
+                    return (
+                      <Chip
+                        key={preset.key}
+                        icon={PresetIcon ? <PresetIcon size={12} /> : undefined}
+                        label={preset.label}
+                        size="small"
+                        onClick={() => {
+                          setAvatarIcon(preset.key);
+                          if (preset.key) setAvatarLetter(''); // clear letter if choosing icon
+                        }}
+                        variant={isSelected ? 'filled' : 'outlined'}
+                        color={isSelected ? 'primary' : 'default'}
+                        sx={{
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          borderColor: isSelected ? 'transparent' : '#F0E0D6',
+                          backgroundColor: isSelected ? '#8F4E00' : 'transparent',
+                          color: isSelected ? '#ffffff !important' : 'text.primary',
+                          '& .MuiChip-icon': {
+                            color: isSelected ? '#ffffff !important' : 'inherit'
+                          }
+                        }}
+                      />
+                    );
+                  })}
+                </Box>
+              </Box>
+
+              <Button
+                variant="contained"
+                onClick={handleSaveProfile}
+                disabled={savingProfile}
+                fullWidth
+                sx={{ borderRadius: '100px', py: 1.2, fontWeight: 800 }}
+              >
+                {savingProfile ? 'Gegevens Opslaan...' : 'Aanpassingen Opslaan'}
+              </Button>
+            </Grid>
+          </Grid>
+        </CardContent>
+      </Card>
 
       {/* Database State Card */}
       <Card sx={{ mb: 3, border: '1px solid #F0E0D6' }}>
@@ -129,7 +486,7 @@ export default function SettingsPanel({ activeProfile, members, onSwitchProfile,
             <User size={18} className="text-primary" /> Wissel van Gezinslid
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Je bent momenteel ingelogd als <b>{activeProfile}</b>. Klik op een ander gezinslid hieronder om van profiel te wisselen:
+            Je bent momenteel ingelogd als <b>{activeProfile}</b>. Klik op een ander gezinslid hieronder om over te stappen van profiel:
           </Typography>
 
           <Box
@@ -140,45 +497,53 @@ export default function SettingsPanel({ activeProfile, members, onSwitchProfile,
               mb: 3,
             }}
           >
-            {members.map((member) => (
-              <Box
-                key={member.id}
-                onClick={() => onSwitchProfile(member.name)}
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  p: 1.5,
-                  borderRadius: '12px',
-                  cursor: 'pointer',
-                  border: activeProfile === member.name ? '2px solid #8F4E00' : '1px solid #F0E0D6',
-                  backgroundColor: activeProfile === member.name ? '#FFDCC0' : 'transparent',
-                  transition: 'all 0.2s',
-                  '&:hover': {
-                    backgroundColor: 'rgba(0,0,0,0.01)',
-                    transform: 'translateY(-2px)'
-                  }
-                }}
-              >
-                <Avatar
+            {members.map((member) => {
+              const IconComp = member.avatarIcon ? avatarIconsMap[member.avatarIcon] : null;
+              return (
+                <Box
+                  key={member.id}
+                  onClick={() => onSwitchProfile(member.name)}
                   sx={{
-                    width: 28,
-                    height: 28,
-                    fontSize: '0.8rem',
-                    fontWeight: 'bold',
-                    backgroundColor: getAvatarColor(member.name),
-                    mr: 1.5
+                    display: 'flex',
+                    alignItems: 'center',
+                    p: 1.5,
+                    borderRadius: '12px',
+                    cursor: 'pointer',
+                    border: activeProfile.toLowerCase() === member.name.toLowerCase() ? '2px solid #8F4E00' : '1px solid #F0E0D6',
+                    backgroundColor: activeProfile.toLowerCase() === member.name.toLowerCase() ? '#FFDCC0' : 'transparent',
+                    transition: 'all 0.2s',
+                    '&:hover': {
+                      backgroundColor: 'rgba(0,0,0,0.01)',
+                      transform: 'translateY(-2px)'
+                    }
                   }}
                 >
-                  {member.name.charAt(0).toUpperCase()}
-                </Avatar>
-                <Typography variant="body2" sx={{ fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {member.name}
-                </Typography>
-                {activeProfile === member.name && (
-                  <Chip size="small" label="Actief" color="primary" sx={{ ml: 'auto', height: 16, fontSize: '0.65rem', fontWeight: 800 }} />
-                )}
-              </Box>
-            ))}
+                  <Avatar
+                    sx={{
+                      width: 28,
+                      height: 28,
+                      fontSize: '0.8rem',
+                      fontWeight: 'bold',
+                      backgroundColor: member.avatarColor || getAvatarColor(member.name),
+                      color: '#ffffff',
+                      mr: 1.5
+                    }}
+                  >
+                    {IconComp ? (
+                      <IconComp size={15} />
+                    ) : (
+                      member.avatarLetter || member.name.charAt(0).toUpperCase()
+                    )}
+                  </Avatar>
+                  <Typography variant="body2" sx={{ fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '80px' }}>
+                    {member.name}
+                  </Typography>
+                  {activeProfile.toLowerCase() === member.name.toLowerCase() && (
+                    <Chip size="small" label="Actief" color="primary" sx={{ ml: 'auto', height: 16, fontSize: '0.65rem', fontWeight: 800 }} />
+                  )}
+                </Box>
+              );
+            })}
           </Box>
 
           <Divider sx={{ mb: 3 }} />
@@ -198,41 +563,68 @@ export default function SettingsPanel({ activeProfile, members, onSwitchProfile,
       <Card>
         <CardContent sx={{ p: 3 }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Plus size={18} className="text-primary" /> Nieuw Lid Toevoegen (Settings)
+            <Plus size={18} className="text-primary" /> Nieuw lid toevoegen
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3.5 }}>
-            Heeft de familie uitbreiding gekregen of eet er iemand gezellig mee vanavond? Voeg ze hier toe!
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
+            Registreer een nieuw lid aan de gezinstafel met een eigen wachtwoord.
           </Typography>
 
-          {errorText && (
+          {addErrorText && (
             <Alert severity="error" sx={{ mb: 2, borderRadius: '12px' }}>
-              {errorText}
+              {addErrorText}
             </Alert>
           )}
 
-          <Box sx={{ display: 'flex', gap: 1.5 }}>
-            <TextField
-              size="small"
-              label="Naam van nieuw lid"
-              variant="outlined"
-              fullWidth
-              value={newMemberName}
-              onChange={(e) => {
-                if (e.target.value.length <= 20) {
-                  setNewMemberName(e.target.value);
-                  setErrorText('');
-                }
-              }}
-            />
-            <Button
-              variant="contained"
-              onClick={handleAddMember}
-              disabled={loading}
-              sx={{ whiteSpace: 'nowrap', borderRadius: '100px', px: 3 }}
-            >
-              Toevoegen
-            </Button>
-          </Box>
+          {addSuccessText && (
+            <Alert severity="success" sx={{ mb: 2, borderRadius: '12px' }}>
+              {addSuccessText}
+            </Alert>
+          )}
+
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 12, sm: 5 }}>
+              <TextField
+                size="small"
+                label="Naam van nieuw lid"
+                variant="outlined"
+                fullWidth
+                value={addMemberName}
+                onChange={(e) => {
+                  if (e.target.value.length <= 20) {
+                    setAddMemberName(e.target.value);
+                    setAddErrorText('');
+                    setAddSuccessText('');
+                  }
+                }}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 5 }}>
+              <TextField
+                size="small"
+                label="Stel wachtwoord in"
+                type="password"
+                variant="outlined"
+                fullWidth
+                value={addMemberPassword}
+                onChange={(e) => {
+                  setAddMemberPassword(e.target.value);
+                  setAddErrorText('');
+                  setAddSuccessText('');
+                }}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 2 }}>
+              <Button
+                variant="contained"
+                onClick={handleAddMember}
+                disabled={addingMember}
+                fullWidth
+                sx={{ height: '40px', borderRadius: '100px' }}
+              >
+                {addingMember ? '...' : 'Voeg toe'}
+              </Button>
+            </Grid>
+          </Grid>
         </CardContent>
       </Card>
     </Box>

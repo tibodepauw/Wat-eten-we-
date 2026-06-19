@@ -378,27 +378,40 @@ export default function SpinWheel({ dishes, ratingsMap, plannedMeals, onCelebrat
       ctx.stroke();
 
       // Text labels inside slices
-      ctx.save();
-      ctx.translate(centerX, centerY);
-      const labelAngle = currentAngle + sliceAngle / 2;
-      ctx.rotate(labelAngle);
-
-      ctx.fillStyle = index % sliceColors.length === 2 ? '#2e1e1a' : '#ffffff';
-      ctx.font = 'bold 13px "Outfit"';
-      ctx.textAlign = 'right';
-      ctx.textBaseline = 'middle';
-      
-      const maxTextWidth = radius * 0.55;
-      let text = item.dish.name;
-      if (ctx.measureText(text).width > maxTextWidth) {
-        while (ctx.measureText(text + '...').width > maxTextWidth) {
-          text = text.slice(0, -1);
-        }
-        text = text + '...';
+      const numDishes = weightedDishes.length;
+      const shouldDrawText = numDishes <= 36;
+      let fontSize = 13;
+      if (numDishes > 24) {
+        fontSize = 8;
+      } else if (numDishes > 16) {
+        fontSize = 10;
+      } else if (numDishes > 10) {
+        fontSize = 12;
       }
 
-      ctx.fillText(text, radius - 24, 0);
-      ctx.restore();
+      if (shouldDrawText) {
+        ctx.save();
+        ctx.translate(centerX, centerY);
+        const labelAngle = currentAngle + sliceAngle / 2;
+        ctx.rotate(labelAngle);
+
+        ctx.fillStyle = index % sliceColors.length === 2 ? '#2e1e1a' : '#ffffff';
+        ctx.font = `bold ${fontSize}px "Outfit"`;
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        
+        const maxTextWidth = radius * 0.65;
+        let text = item.dish.name;
+        if (ctx.measureText(text).width > maxTextWidth) {
+          while (ctx.measureText(text + '...').width > maxTextWidth) {
+            text = text.slice(0, -1);
+          }
+          text = text + '...';
+        }
+
+        ctx.fillText(text, radius - 20, 0);
+        ctx.restore();
+      }
 
       currentAngle = endAngle;
     });
@@ -612,10 +625,10 @@ export default function SpinWheel({ dishes, ratingsMap, plannedMeals, onCelebrat
   };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', py: 2 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', py: 1, gap: 2 }}>
       
       {/* Sound selector & Headings */}
-      <Box sx={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1, px: 2 }}>
+      <Box sx={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 2 }}>
         <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary' }}>
           Rad van inspiratie
         </Typography>
@@ -634,7 +647,7 @@ export default function SpinWheel({ dishes, ratingsMap, plannedMeals, onCelebrat
       </Box>
 
       {/* Moment Selector */}
-      <Box sx={{ width: '100%', px: 2, mb: 1, mt: 1, backgroundColor: '#ffffff', border: '1px solid #F0E0D6', py: 2, borderRadius: '16px' }}>
+      <Box sx={{ width: '100%', px: 2, backgroundColor: '#ffffff', border: '1px solid #F0E0D6', py: 2, borderRadius: '16px' }}>
         <Typography variant="body2" sx={{ fontWeight: 800, color: '#8F4E00', mb: 1.5, display: 'flex', alignItems: 'center', gap: 1, textTransform: 'uppercase', letterSpacing: '0.04em', fontSize: '0.75rem' }}>
           Waarvoor wil je aan het rad draaien?
         </Typography>
@@ -688,7 +701,7 @@ export default function SpinWheel({ dishes, ratingsMap, plannedMeals, onCelebrat
       </Box>
 
       {/* Date select wrapper */}
-      <Box sx={{ width: '100%', px: 2, mb: 1, mt: 1, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { xs: 'stretch', sm: 'center' }, justifyContent: 'space-between', gap: 2, backgroundColor: '#ffffff', border: '1px solid #F0E0D6', py: 2, borderRadius: '16px' }}>
+      <Box sx={{ width: '100%', px: 2, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { xs: 'stretch', sm: 'center' }, justifyContent: 'space-between', gap: 2, backgroundColor: '#ffffff', border: '1px solid #F0E0D6', py: 2, borderRadius: '16px' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Calendar size={18} style={{ color: '#8F4E00' }} />
           <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.primary' }}>
@@ -724,7 +737,6 @@ export default function SpinWheel({ dishes, ratingsMap, plannedMeals, onCelebrat
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          my: 3,
           pt: 2.5, // 20px top padding to accommodate the needle rotation wiggles without clipping
         }}
       >
@@ -801,7 +813,7 @@ export default function SpinWheel({ dishes, ratingsMap, plannedMeals, onCelebrat
 
       {/* Restricted dishes lists */}
       {lockedDishes.length > 0 && (
-        <Box sx={{ width: '100%', px: 2, mt: 3 }}>
+        <Box sx={{ width: '100%', px: 2, mt: 1 }}>
           <Typography variant="caption" sx={{ fontWeight: 800, color: 'text.secondary', display: 'block', mb: 1, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
             Tijdelijk uitgesloten ({lockedDishes.length}) - Al gepland binnen 7 dagen:
           </Typography>
@@ -876,7 +888,7 @@ export default function SpinWheel({ dishes, ratingsMap, plannedMeals, onCelebrat
 
           {winner?.description && (
             <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1.5, fontStyle: 'italic', px: 2, lineHeight: 1.3, fontSize: '0.85rem' }}>
-              "{winner.description}"
+              {winner.description}
             </Typography>
           )}
 

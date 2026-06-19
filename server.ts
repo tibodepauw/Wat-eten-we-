@@ -20,10 +20,10 @@ const DB_FILE = path.join(DB_DIR, 'db.json');
 // Default initial state matching exactly our kookboek seeding
 const DEFAULT_DB = {
   members: [
-    { id: 'papa', name: 'Papa', createdAt: new Date().toISOString() },
-    { id: 'mama', name: 'Mama', createdAt: new Date().toISOString() },
-    { id: 'tibo', name: 'Tibo', createdAt: new Date().toISOString() },
-    { id: 'briek', name: 'Briek', createdAt: new Date().toISOString() }
+    { id: 'papa', name: 'Papa', password: 'papa', avatarColor: '#8F4E00', avatarLetter: 'P', avatarIcon: 'smile', createdAt: new Date().toISOString() },
+    { id: 'mama', name: 'Mama', password: 'mama', avatarColor: '#5a7862', avatarLetter: 'M', avatarIcon: 'heart', createdAt: new Date().toISOString() },
+    { id: 'tibo', name: 'Tibo', password: 'tibo', avatarColor: '#f28f3b', avatarLetter: 'T', avatarIcon: 'star', createdAt: new Date().toISOString() },
+    { id: 'briek', name: 'Briek', password: 'briek', avatarColor: '#9b59b6', avatarLetter: 'B', avatarIcon: 'crown', createdAt: new Date().toISOString() }
   ],
   dishes: [
     {
@@ -128,7 +128,45 @@ function readDB() {
       return DEFAULT_DB;
     }
     const content = fs.readFileSync(DB_FILE, 'utf-8');
-    return JSON.parse(content);
+    const parsed = JSON.parse(content);
+    let modified = false;
+
+    if (parsed.members && Array.isArray(parsed.members)) {
+      parsed.members = parsed.members.map((m: any) => {
+        let updated = false;
+        if (!m.password) {
+          m.password = m.name.toLowerCase();
+          updated = true;
+        }
+        if (!m.avatarColor) {
+          const colors = ['#8F4E00', '#5a7862', '#f28f3b', '#9b59b6', '#3498db', '#1abc9c', '#e67e22'];
+          let hash = 0;
+          for (let i = 0; i < m.name.length; i++) {
+            hash = m.name.charCodeAt(i) + ((hash << 5) - hash);
+          }
+          const index = Math.abs(hash) % colors.length;
+          m.avatarColor = colors[index];
+          updated = true;
+        }
+        if (!m.avatarLetter) {
+          m.avatarLetter = (m.name || 'G').charAt(0).toUpperCase();
+          updated = true;
+        }
+        if (m.avatarIcon === undefined) {
+          m.avatarIcon = '';
+          updated = true;
+        }
+        if (updated) {
+          modified = true;
+        }
+        return m;
+      });
+    }
+
+    if (modified) {
+      writeDB(parsed);
+    }
+    return parsed;
   } catch (error) {
     console.error('Error reading JSON DB, fallback to memory', error);
     return DEFAULT_DB;
@@ -152,15 +190,16 @@ readDB();
 
 // --- API Endpoints ---
 
-// GET: All members
+// GET: All members (excluding passwords for safety)
 app.get('/api/members', (req, res) => {
   const db = readDB();
-  res.json(db.members || []);
+  const publicMembers = (db.members || []).map(({ password, ...rest }: any) => rest);
+  res.json(publicMembers);
 });
 
 // POST: Add new member
 app.post('/api/members', (req, res) => {
-  const { name } = req.body;
+  const { name, password, avatarColor, avatarLetter, avatarIcon } = req.body;
   if (!name || typeof name !== 'string') {
     res.status(400).json({ error: 'Naam is verplicht.' });
     return;
@@ -171,18 +210,119 @@ app.post('/api/members', (req, res) => {
   if (!db.members) db.members = [];
   
   const alreadyExists = db.members.some((m: any) => m.name.toLowerCase() === name.toLowerCase());
-  if (!alreadyExists) {
-    const newMember = {
-      id: cleanId,
-      name,
-      createdAt: new Date().toISOString()
-    };
-    db.members.push(newMember);
-    writeDB(db);
-    res.json(newMember);
-  } else {
-    res.json(db.members.find((m: any) => m.name.toLowerCase() === name.toLowerCase()));
+  if (alreadyExists) {
+    res.status(400).json({ error: 'Dit gezinslid bestaat al!' });
+    return;
   }
+
+  const newMember = {
+    id: cleanId,
+    name: name.trim(),
+    password: password ? password.trim() : name.trim().toLowerCase(),
+    avatarColor: avatarColor || '#8F4E00',
+    avatarLetter: avatarLetter || name.trim().charAt(0).toUpperCase(),
+    avatarIcon: avatarIcon || '',
+    createdAt: new Date().toISOString()
+  };
+  db.members.push(newMember);
+  writeDB(db);
+
+  const { password: _, ...publicMember } = newMember;
+  res.json(publicMember);
+});
+
+// POST: Login securely
+app.post('/api/members/login', (req, res) => {
+  const { name, password } = req.body;
+  if (!name || !password) {
+    res.status(400).json({ error: 'Naam en wachtwoord zijn verplicht.' });
+    return;
+  }
+  const db = readDB();
+  const member = (db.members || []).find((m: any) => m.name.toLowerCase() === name.trim().toLowerCase());
+  if (!member) {
+    res.status(404).json({ error: 'Gezinslid niet gevonden.' });
+    return;
+  }
+  
+  const matches = (member.password || '').trim().toLowerCase() === password.trim().toLowerCase();
+  if (!matches) {
+    res.status(401).json({ error: 'Onjuist wachtwoord.' });
+    return;
+  }
+
+  const { password: _, ...publicMember } = member;
+  res.json({ success: true, member: publicMember });
+});
+
+// PUT: Update member details
+app.put('/api/members/:id', (req, res) => {
+  const { id } = req.params;
+  const { name, password, avatarColor, avatarLetter, avatarIcon } = req.body;
+  const db = readDB();
+  
+  if (!db.members) db.members = [];
+  
+  const memberIdx = db.members.findIndex((m: any) => m.id === id);
+  if (memberIdx === -1) {
+    res.status(404).json({ error: 'Gezinslid niet gevonden.' });
+    return;
+  }
+
+  const oldMember = db.members[memberIdx];
+  const oldName = oldMember.name;
+  const newName = name ? name.trim() : oldName;
+  
+  if (newName.toLowerCase() !== oldName.toLowerCase()) {
+    const nameTaken = db.members.some((m: any) => m.id !== id && m.name.toLowerCase() === newName.toLowerCase());
+    if (nameTaken) {
+      res.status(400).json({ error: 'Deze naam is al in gebruik.' });
+      return;
+    }
+  }
+
+  const updatedMember = {
+    ...oldMember,
+    name: newName,
+    id: newName.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+    password: password !== undefined ? password.trim() : oldMember.password,
+    avatarColor: avatarColor || oldMember.avatarColor,
+    avatarLetter: avatarLetter || oldMember.avatarLetter,
+    avatarIcon: avatarIcon !== undefined ? avatarIcon : oldMember.avatarIcon,
+  };
+
+  db.members[memberIdx] = updatedMember;
+
+  if (newName !== oldName) {
+    if (db.dishes && Array.isArray(db.dishes)) {
+      db.dishes.forEach((d: any) => {
+        if (d.addedBy === oldName) {
+          d.addedBy = newName;
+        }
+      });
+    }
+    if (db.ratings) {
+      Object.keys(db.ratings).forEach((dishId) => {
+        const dishRatings = db.ratings[dishId];
+        if (dishRatings && dishRatings[oldName] !== undefined) {
+          dishRatings[newName] = dishRatings[oldName];
+          delete dishRatings[oldName];
+        }
+      });
+    }
+    if (db.shopping_list && Array.isArray(db.shopping_list)) {
+      db.shopping_list.forEach((item: any) => {
+        if (item.addedBy === oldName) {
+          item.addedBy = newName;
+        }
+      });
+    }
+  }
+
+  writeDB(db);
+
+  const { password: _, ...publicMember } = updatedMember;
+  res.json({ success: true, member: publicMember });
 });
 
 // GET: All dishes
@@ -223,6 +363,27 @@ app.delete('/api/dishes/:id', (req, res) => {
   db.planned_meals = (db.planned_meals || []).filter((m: any) => m.dishId !== id);
   writeDB(db);
   res.json({ success: true });
+});
+
+// PUT: Update an existing dish
+app.put('/api/dishes/:id', (req, res) => {
+  const { id } = req.params;
+  const updates = req.body;
+  const db = readDB();
+  if (!db.dishes) db.dishes = [];
+
+  const idx = db.dishes.findIndex((d: any) => d.id === id);
+  if (idx !== -1) {
+    db.dishes[idx] = {
+      ...db.dishes[idx],
+      ...updates,
+      id // Prevent id from being overwritten
+    };
+    writeDB(db);
+    res.json(db.dishes[idx]);
+  } else {
+    res.status(404).json({ error: 'Gerecht niet gevonden.' });
+  }
 });
 
 // GET: All ratings formatted as { [dishId]: Rating[] }
@@ -308,14 +469,75 @@ app.post('/api/shopping_list', (req, res) => {
   const db = readDB();
   if (!db.shopping_list) db.shopping_list = [];
 
+  const mergeAmounts = (a: string, b: string): string => {
+    a = (a || '').trim();
+    b = (b || '').trim();
+    if (!a) return b;
+    if (!b) return a;
+
+    // Regex to match a number at the start, followed by optional unit text
+    const regex = /^([\d.,]+)\s*(.*)$/;
+    const matchA = a.match(regex);
+    const matchB = b.match(regex);
+
+    if (matchA && matchB) {
+      const numA = parseFloat(matchA[1].replace(',', '.'));
+      const numB = parseFloat(matchB[1].replace(',', '.'));
+      const unitA = matchA[2].trim().toLowerCase();
+      const unitB = matchB[2].trim().toLowerCase();
+
+      if (!isNaN(numA) && !isNaN(numB)) {
+        if (unitA === unitB) {
+          const sum = numA + numB;
+          const formattedSum = Number(sum.toFixed(2));
+          return matchA[2].trim() ? `${formattedSum} ${matchA[2].trim()}` : `${formattedSum}`;
+        }
+        const gUnits = ['g', 'gr', 'gram'];
+        if (gUnits.includes(unitA) && gUnits.includes(unitB)) {
+          const sum = numA + numB;
+          return `${Number(sum.toFixed(2))} g`;
+        }
+        return `${a} + ${b}`;
+      }
+    }
+
+    if (a.toLowerCase() === b.toLowerCase()) {
+      return a;
+    }
+    return `${a} + ${b}`;
+  };
+
   const addSingleItem = (itemObj: any) => {
+    const nameNorm = (itemObj.name || '').trim().toLowerCase();
+    const categoryVal = itemObj.category || 'Overig';
+    const isCompleted = !!itemObj.completed;
+
+    if (!isCompleted) {
+      // Find active item with the same name and category
+      const existingIndex = db.shopping_list.findIndex((item: any) => 
+        !item.completed && 
+        (item.name || '').trim().toLowerCase() === nameNorm && 
+        (item.category || 'Overig') === categoryVal
+      );
+
+      if (existingIndex !== -1) {
+        const existingItem = db.shopping_list[existingIndex];
+        const newAmount = mergeAmounts(existingItem.amount, itemObj.amount);
+        db.shopping_list[existingIndex] = {
+          ...existingItem,
+          amount: newAmount
+        };
+        return db.shopping_list[existingIndex];
+      }
+    }
+
     const generatedId = Math.random().toString(36).substring(2, 11);
     const newItem = {
       id: generatedId,
-      name: itemObj.name || 'Onbekend',
-      amount: itemObj.amount || '',
-      category: itemObj.category || 'Overig',
-      completed: !!itemObj.completed,
+      name: (itemObj.name || 'Onbekend').trim(),
+      amount: (itemObj.amount || '').trim(),
+      category: categoryVal,
+      completed: isCompleted,
       addedBy: itemObj.addedBy || 'Systeem',
       createdAt: new Date().toISOString()
     };

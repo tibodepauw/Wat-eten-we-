@@ -8,7 +8,6 @@ import {
   Box,
   Typography,
   Avatar,
-  Grid,
   Card,
   CardContent,
   Button,
@@ -17,9 +16,13 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  CircularProgress
+  CircularProgress,
+  Alert
 } from '@mui/material';
-import { Plus, ChefHat } from 'lucide-react';
+import { 
+  Plus, ChefHat, Smile, Heart, Star, Flame, Crown, Shield, 
+  Trophy, Moon, Sun, Ghost, Music, Coffee, Pizza, Cat, Dog, Apple, Cake, User
+} from 'lucide-react';
 import { MealDatabase } from '../lib/db';
 import { Member } from '../types';
 
@@ -48,12 +51,40 @@ export const getAvatarColor = (name: string) => {
   return avatarColors[index];
 };
 
+export const avatarIconsMap: { [key: string]: React.ComponentType<any> } = {
+  smile: Smile,
+  heart: Heart,
+  star: Star,
+  flame: Flame,
+  crown: Crown,
+  shield: Shield,
+  trophy: Trophy,
+  moon: Moon,
+  sun: Sun,
+  ghost: Ghost,
+  music: Music,
+  coffee: Coffee,
+  pizza: Pizza,
+  cat: Cat,
+  dog: Dog,
+  apple: Apple,
+  cake: Cake,
+  user: User,
+};
+
 export default function ProfilePicker({ onSelectProfile, activeProfile }: ProfilePickerProps) {
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [openAddDialog, setOpenAddDialog] = useState(false);
   const [newMemberName, setNewMemberName] = useState('');
-  const [errorText, setErrorText] = useState('');
+  const [newMemberPassword, setNewMemberPassword] = useState('');
+  const [addErrorText, setAddErrorText] = useState('');
+
+  // Password Login state
+  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [loginErrorText, setLoginErrorText] = useState('');
+  const [authenticating, setAuthenticating] = useState(false);
 
   useEffect(() => {
     // Subscribe to database profiles in real-time
@@ -64,25 +95,61 @@ export default function ProfilePicker({ onSelectProfile, activeProfile }: Profil
     return () => unsubscribe();
   }, []);
 
+  const handleMemberClick = (member: Member) => {
+    setSelectedMember(member);
+    setPasswordInput('');
+    setLoginErrorText('');
+  };
+
+  const handleLoginSubmit = async () => {
+    if (!selectedMember) return;
+    setAuthenticating(true);
+    setLoginErrorText('');
+    try {
+      const res = await MealDatabase.loginMember(selectedMember.name, passwordInput);
+      if (res.success) {
+        onSelectProfile(selectedMember.name);
+        setSelectedMember(null);
+      } else {
+        setLoginErrorText('Onjuist wachtwoord. Probeer het opnieuw.');
+      }
+    } catch (err: any) {
+      setLoginErrorText(err.message || 'Fout bij het inloggen. Probeer het opnieuw.');
+    } finally {
+      setAuthenticating(false);
+    }
+  };
+
   const handleCreateMember = async () => {
-    const trimmed = newMemberName.trim();
-    if (!trimmed) {
-      setErrorText('Naam mag niet leeg zijn');
+    const nameTrimmed = newMemberName.trim();
+    const passTrimmed = newMemberPassword.trim();
+    if (!nameTrimmed) {
+      setAddErrorText('Naam mag niet leeg zijn');
       return;
     }
-    if (trimmed.length > 20) {
-      setErrorText('Naam is te lang (max 20 tekens)');
+    if (nameTrimmed.length > 20) {
+      setAddErrorText('Naam is te lang (max 20 tekens)');
       return;
     }
-    if (members.some(m => m.name.toLowerCase() === trimmed.toLowerCase())) {
-      setErrorText('Dit familielid bestaat al!');
+    if (!passTrimmed) {
+      setAddErrorText('Wachtwoord mag niet leeg zijn');
+      return;
+    }
+    if (members.some(m => m.name.toLowerCase() === nameTrimmed.toLowerCase())) {
+      setAddErrorText('Dit familielid bestaat al!');
       return;
     }
 
     setLoading(true);
-    await MealDatabase.addMember(trimmed);
+    // Derive letter
+    const letter = nameTrimmed.charAt(0).toUpperCase();
+    // Default avatar color index derived
+    const color = getAvatarColor(nameTrimmed);
+
+    await MealDatabase.addMember(nameTrimmed, passTrimmed, color, letter, 'smile');
     setNewMemberName('');
-    setErrorText('');
+    setNewMemberPassword('');
+    setAddErrorText('');
     setOpenAddDialog(false);
     setLoading(false);
   };
@@ -119,6 +186,7 @@ export default function ProfilePicker({ onSelectProfile, activeProfile }: Profil
               backgroundColor: '#FFDCC0',
               color: '#8F4E00',
               mb: 3,
+              cursor: 'pointer'
             }}
           >
             <ChefHat size={44} strokeWidth={1.5} />
@@ -128,7 +196,7 @@ export default function ProfilePicker({ onSelectProfile, activeProfile }: Profil
             Wat Eten We?
           </Typography>
           <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-            Welkom! Wie schuift er vandaag gezellig aan aan de familietafel?
+            Welkom! Wie schuift er vandaag gezellig aan? Om de familiestatistieken en instellingen te beschermen is elk lid beveiligd met een wachtwoord.
           </Typography>
 
           {loading ? (
@@ -145,62 +213,80 @@ export default function ProfilePicker({ onSelectProfile, activeProfile }: Profil
                 justifyContent: 'center',
               }}
             >
-              {members.map((member) => (
-                <Box
-                  key={member.id}
-                  onClick={() => onSelectProfile(member.name)}
-                  sx={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    p: 2,
-                    borderRadius: '16px',
-                    cursor: 'pointer',
-                    transition: 'all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-                    border: activeProfile === member.name 
-                      ? '2px solid #8F4E00' 
-                      : '2px solid transparent',
-                    backgroundColor: activeProfile === member.name 
-                      ? '#FFDCC0' 
-                      : 'transparent',
-                    '&:hover': {
-                      transform: 'translateY(-6px)',
-                      backgroundColor: '#FFDCC0',
-                      opacity: 0.9,
+              {members.map((member) => {
+                const IconComponent = member.avatarIcon ? avatarIconsMap[member.avatarIcon] : null;
+                const bgColor = member.avatarColor || getAvatarColor(member.name);
+                return (
+                  <Box
+                    key={member.id}
+                    onClick={() => handleMemberClick(member)}
+                    sx={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      p: 2,
+                      borderRadius: '16px',
+                      cursor: 'pointer',
+                      transition: 'all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
                       border: activeProfile === member.name 
                         ? '2px solid #8F4E00' 
-                        : '2px solid #F0E0D6',
-                    },
-                  }}
-                >
-                  <Avatar
-                    sx={{
-                      width: 64,
-                      height: 64,
-                      fontSize: '1.5rem',
-                      fontWeight: 'bold',
-                      backgroundColor: getAvatarColor(member.name),
-                      mb: 1.5,
-                      boxShadow: '0px 4px 12px rgba(0,0,0,0.08)',
+                        : '2px solid transparent',
+                      backgroundColor: activeProfile === member.name 
+                        ? '#FFDCC0' 
+                        : 'transparent',
+                      '&:hover': {
+                        transform: 'translateY(-6px)',
+                        backgroundColor: '#FFDCC0',
+                        opacity: 0.9,
+                        border: activeProfile === member.name 
+                          ? '2px solid #8F4E00' 
+                          : '2px solid #F0E0D6',
+                      },
                     }}
                   >
-                    {member.name.charAt(0).toUpperCase()}
-                  </Avatar>
-                  <Typography
-                    variant="body1"
-                    sx={{
-                      fontWeight: 600,
-                      color: activeProfile === member.name ? '#311300' : 'text.primary'
-                    }}
-                  >
-                    {member.name}
-                  </Typography>
-                </Box>
-              ))}
+                    <Avatar
+                      sx={{
+                        width: 64,
+                        height: 64,
+                        fontSize: '1.5rem',
+                        fontWeight: 'bold',
+                        backgroundColor: bgColor,
+                        color: '#ffffff',
+                        mb: 1.5,
+                        boxShadow: '0px 4px 12px rgba(0,0,0,0.08)',
+                      }}
+                    >
+                      {IconComponent ? (
+                        <IconComponent size={30} strokeWidth={2} />
+                      ) : (
+                        member.avatarLetter || member.name.charAt(0).toUpperCase()
+                      )}
+                    </Avatar>
+                    <Typography
+                      variant="body1"
+                      sx={{
+                        fontWeight: 700,
+                        color: activeProfile === member.name ? '#311300' : 'text.primary',
+                        maxWidth: '120px',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      {member.name}
+                    </Typography>
+                  </Box>
+                );
+              })}
 
               {/* Add Member Button Box */}
               <Box
-                onClick={() => setOpenAddDialog(true)}
+                onClick={() => {
+                  setOpenAddDialog(true);
+                  setNewMemberName('');
+                  setNewMemberPassword('');
+                  setAddErrorText('');
+                }}
                 sx={{
                   display: 'flex',
                   flexDirection: 'column',
@@ -230,7 +316,7 @@ export default function ProfilePicker({ onSelectProfile, activeProfile }: Profil
                   <Plus size={28} />
                 </Avatar>
                 <Typography variant="body2" sx={{ fontWeight: 600, color: 'primary.main' }}>
-                  Lid Toevoegen
+                  Lid toevoegen
                 </Typography>
               </Box>
             </Box>
@@ -238,26 +324,122 @@ export default function ProfilePicker({ onSelectProfile, activeProfile }: Profil
         </CardContent>
       </Card>
 
+      {/* Login with Password Dialog */}
+      <Dialog
+        open={!!selectedMember}
+        onClose={() => setSelectedMember(null)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <Box sx={{ p: 1 }}>
+        {selectedMember && (
+          <>
+            <DialogTitle sx={{ fontWeight: 800, pb: 0, textAlign: 'center' }}>
+              Inloggen als {selectedMember.name}
+            </DialogTitle>
+            <DialogContent sx={{ pt: 2, textAlign: 'center' }}>
+              <Avatar
+                sx={{
+                  width: 64,
+                  height: 64,
+                  mx: 'auto',
+                  mb: 2,
+                  backgroundColor: selectedMember.avatarColor || getAvatarColor(selectedMember.name),
+                  boxShadow: '0px 4px 12px rgba(0,0,0,0.08)',
+                }}
+              >
+                {selectedMember.avatarIcon && avatarIconsMap[selectedMember.avatarIcon] ? (
+                  React.createElement(avatarIconsMap[selectedMember.avatarIcon], { size: 30 })
+                ) : (
+                  selectedMember.avatarLetter || selectedMember.name.charAt(0).toUpperCase()
+                )}
+              </Avatar>
+
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                Voer je wachtwoord in om veilig toegang te krijgen tot de app.
+                <br />
+                <span style={{ fontSize: '0.75rem', color: '#8F4E00', fontWeight: 'bold' }}>
+                  (Tip: Standaard wachtwoord is je naam in kleine letters, bijv. '{selectedMember.name.toLowerCase()}')
+                </span>
+              </Typography>
+
+              {loginErrorText && (
+                <Alert severity="error" sx={{ mb: 2, borderRadius: '12px' }}>
+                  {loginErrorText}
+                </Alert>
+              )}
+
+              <TextField
+                autoFocus
+                margin="dense"
+                label="Wachtwoord"
+                type="password"
+                fullWidth
+                variant="outlined"
+                value={passwordInput}
+                onChange={(e) => {
+                  setPasswordInput(e.target.value);
+                  setLoginErrorText('');
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleLoginSubmit();
+                  }
+                }}
+                placeholder="Je persoonlijke wachtwoord"
+              />
+            </DialogContent>
+            <DialogActions sx={{ px: 3, pb: 3, justifyContent: 'space-between' }}>
+              <Button
+                onClick={() => setSelectedMember(null)}
+                variant="text"
+                sx={{ color: 'text.secondary', fontWeight: 700 }}
+              >
+                Annuleren
+              </Button>
+              <Button 
+                onClick={handleLoginSubmit} 
+                variant="contained" 
+                disabled={authenticating}
+                sx={{ borderRadius: '100px', px: 3 }}
+              >
+                {authenticating ? 'Inloggen...' : 'Volgende'}
+              </Button>
+            </DialogActions>
+          </>
+        )}
+        </Box>
+      </Dialog>
+
       {/* Add Member Dialog */}
       <Dialog
         open={openAddDialog}
         onClose={() => {
           setOpenAddDialog(false);
-          setErrorText('');
+          setAddErrorText('');
           setNewMemberName('');
+          setNewMemberPassword('');
         }}
         maxWidth="xs"
         fullWidth
       >
-        <DialogTitle sx={{ fontWeight: 800, pb: 1 }}>Familielid toevoegen</DialogTitle>
+        <Box sx={{ p: 1 }}>
+        <DialogTitle sx={{ fontWeight: 800 }}>Nieuw familielid toevoegen</DialogTitle>
         <DialogContent sx={{ pt: 1 }}>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Vul de naam in van het nieuwe lid dat aan de familietafel van "Wat Eten We?" schuift.
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Kies een naam en stel meteen een veilig wachtwoord in om je profiel te beveiligen.
           </Typography>
+
+          {addErrorText && (
+            <Alert severity="error" sx={{ mb: 2, borderRadius: '12px' }}>
+              {addErrorText}
+            </Alert>
+          )}
+
           <TextField
             autoFocus
             margin="dense"
-            label="Naam"
+            label="Naam van gezinslid"
             type="text"
             fullWidth
             variant="outlined"
@@ -265,30 +447,50 @@ export default function ProfilePicker({ onSelectProfile, activeProfile }: Profil
             onChange={(e) => {
               if (e.target.value.length <= 20) {
                 setNewMemberName(e.target.value);
-                setErrorText('');
+                setAddErrorText('');
               }
             }}
-            error={!!errorText}
-            helperText={errorText}
-            placeholder="Bijv. Opa, Kleine Bas..."
+            placeholder="Bijv. Lucas, Opa..."
+            sx={{ mb: 2 }}
+          />
+
+          <TextField
+            margin="dense"
+            label="Wachtwoord"
+            type="password"
+            fullWidth
+            variant="outlined"
+            value={newMemberPassword}
+            onChange={(e) => {
+              setNewMemberPassword(e.target.value);
+              setAddErrorText('');
+            }}
+            placeholder="Kies een makkelijk te onthouden wachtwoord"
           />
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 3 }}>
+        <DialogActions sx={{ px: 3, pb: 3, justifyContent: 'space-between' }}>
           <Button
             onClick={() => {
               setOpenAddDialog(false);
-              setErrorText('');
+              setAddErrorText('');
               setNewMemberName('');
+              setNewMemberPassword('');
             }}
             variant="text"
-            sx={{ color: 'text.secondary' }}
+            sx={{ color: 'text.secondary', fontWeight: 700 }}
           >
             Annuleren
           </Button>
-          <Button onClick={handleCreateMember} variant="contained" disabled={loading}>
+          <Button 
+            onClick={handleCreateMember} 
+            variant="contained" 
+            disabled={loading}
+            sx={{ borderRadius: '100px', px: 3 }}
+          >
             Toevoegen
           </Button>
         </DialogActions>
+        </Box>
       </Dialog>
     </Box>
   );

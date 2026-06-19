@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   Box,
   Typography,
@@ -71,11 +72,14 @@ export default function ShoppingList({ activeProfile }: ShoppingListProps) {
   const [itemCategory, setItemCategory] = useState('Groenten & Fruit');
   const [errorText, setErrorText] = useState('');
 
+  // Autocomplete suggestions
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
   // Clear dialogs setup
   const [confirmClearType, setConfirmClearType] = useState<'completed' | 'all' | null>(null);
 
-  // Filter view (All vs Active vs Completed)
-  const [filterMode, setFilterMode] = useState<'all' | 'active' | 'completed'>('all');
+  // Filter view (Default to active - uncompleted, is 'active' vs 'completed')
+  const [filterMode, setFilterMode] = useState<'active' | 'completed'>('active');
 
   // Real-time synchronization
   useEffect(() => {
@@ -86,6 +90,37 @@ export default function ShoppingList({ activeProfile }: ShoppingListProps) {
     });
     return () => unsubscribe();
   }, []);
+
+  // Compute autocomplete suggestions based on previously archived/completed items
+  const query = itemName.trim().toLowerCase();
+  
+  // Get unique archived items
+  const archivedItems = items.filter(item => item.completed);
+  const distinctPresets: ShoppingItem[] = [];
+  const seenNames = new Set<string>();
+  
+  archivedItems.forEach(item => {
+    const norm = item.name.trim().toLowerCase();
+    if (!seenNames.has(norm)) {
+      seenNames.add(norm);
+      distinctPresets.push(item);
+    }
+  });
+
+  const suggestions = query.length >= 1 
+    ? distinctPresets.filter(item => item.name.toLowerCase().includes(query))
+    : [];
+
+  const handleSelectSuggestion = (preset: ShoppingItem) => {
+    setItemName(preset.name);
+    if (preset.amount) {
+      setItemAmount(preset.amount);
+    }
+    if (preset.category) {
+      setItemCategory(preset.category);
+    }
+    setShowSuggestions(false);
+  };
 
   // Handlers
   const handleAddItem = async (e: React.FormEvent) => {
@@ -109,12 +144,19 @@ export default function ShoppingList({ activeProfile }: ShoppingListProps) {
       });
       setItemName('');
       setItemAmount('');
+      setShowSuggestions(false);
     } catch (e) {
       setErrorText('Kon item niet toevoegen.');
     }
   };
 
   const handleToggleItemStatus = async (item: ShoppingItem) => {
+    // Optimistic update
+    setItems(prevItems =>
+      prevItems.map(it =>
+        it.id === item.id ? { ...it, completed: !it.completed } : it
+      )
+    );
     try {
       await MealDatabase.updateShoppingItem(item.id, {
         completed: !item.completed
@@ -125,6 +167,8 @@ export default function ShoppingList({ activeProfile }: ShoppingListProps) {
   };
 
   const handleDeleteItem = async (id: string) => {
+    // Optimistic update
+    setItems(prevItems => prevItems.filter(it => it.id !== id));
     try {
       await MealDatabase.deleteShoppingItem(id);
     } catch (e) {
@@ -176,22 +220,26 @@ export default function ShoppingList({ activeProfile }: ShoppingListProps) {
   return (
     <Box sx={{ width: '100%', py: 1, px: 1 }}>
       {/* Title & Stats */}
-      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifySpaceBetween: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: 1, mb: 3, px: 1 }}>
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: 1, mb: 3, px: 1 }}>
         <Box>
           <Typography variant="h5" sx={{ fontWeight: 800, color: '#311300', display: 'flex', alignItems: 'center', gap: 1 }}>
             <ClipboardList size={26} className="text-amber-800" /> Boodschappenlijstje
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Gezamenlijk boodschappenlijstje voor de hele familie!
           </Typography>
         </Box>
         
         {items.length > 0 && (
           <Chip
-            avatar={<ShoppingCart size={14} className="text-white" />}
+            icon={<ShoppingCart size={14} style={{ color: '#ffffff' }} />}
             label={`${totalActive} spullen te kopen`}
             color="primary"
-            sx={{ fontWeight: 700, backgroundColor: '#8F4E00', color: '#ffffff' }}
+            sx={{
+              fontWeight: 700,
+              backgroundColor: '#8F4E00',
+              color: '#ffffff',
+              '& .MuiChip-icon': {
+                color: '#ffffff !important',
+              }
+            }}
           />
         )}
       </Box>
@@ -212,15 +260,84 @@ export default function ShoppingList({ activeProfile }: ShoppingListProps) {
               )}
 
               <Box component="form" onSubmit={handleAddItem} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <TextField
-                  fullWidth
-                  required
-                  size="small"
-                  label="Productnaam"
-                  value={itemName}
-                  onChange={(e) => setItemName(e.target.value)}
-                  placeholder="Bijv. Halfvolle melk, Appels"
-                />
+                <Box sx={{ position: 'relative' }}>
+                  <TextField
+                    fullWidth
+                    required
+                    size="small"
+                    label="Productnaam"
+                    value={itemName}
+                    onChange={(e) => {
+                      setItemName(e.target.value);
+                      setShowSuggestions(true);
+                    }}
+                    onFocus={() => setShowSuggestions(true)}
+                    onBlur={() => {
+                      // Slight delay to allow clicks on selection to register first
+                      setTimeout(() => setShowSuggestions(false), 200);
+                    }}
+                    placeholder="Bijv. Halfvolle melk, Appels"
+                  />
+
+                  {showSuggestions && suggestions.length > 0 && (
+                    <Paper
+                      elevation={4}
+                      sx={{
+                        position: 'absolute',
+                        top: '100%',
+                        left: 0,
+                        right: 0,
+                        zIndex: 10,
+                        maxHeight: 180,
+                        overflowY: 'auto',
+                        mt: 0.5,
+                        border: '1px solid #F0E0D6',
+                        borderRadius: '12px',
+                        backgroundColor: '#ffffff',
+                        boxShadow: '0 4px 12px rgba(49, 19, 0, 0.08)'
+                      }}
+                    >
+                      {suggestions.map((preset) => (
+                        <Box
+                          key={preset.id}
+                          onClick={() => handleSelectSuggestion(preset)}
+                          sx={{
+                            px: 2,
+                            py: 1,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            borderBottom: '1px solid #FAF7F5',
+                            '&:hover': {
+                              backgroundColor: '#FEF7F3'
+                            },
+                            transition: 'background-color 0.1s'
+                          }}
+                        >
+                          <Typography variant="body2" sx={{ fontWeight: 700, color: '#311300' }}>
+                            {preset.name}
+                          </Typography>
+                          <Box sx={{ display: 'flex', gap: 0.5 }}>
+                            {preset.amount && (
+                              <Chip
+                                label={preset.amount}
+                                size="small"
+                                sx={{ height: 18, fontSize: '0.65rem', fontWeight: 800, backgroundColor: 'rgba(143, 78, 0, 0.08)', color: '#8F4E00' }}
+                              />
+                            )}
+                            <Chip
+                              label={preset.category || 'Overig'}
+                              size="small"
+                              variant="outlined"
+                              sx={{ height: 18, fontSize: '0.65rem' }}
+                            />
+                          </Box>
+                        </Box>
+                      ))}
+                    </Paper>
+                  )}
+                </Box>
 
                 <TextField
                   fullWidth
@@ -276,19 +393,11 @@ export default function ShoppingList({ activeProfile }: ShoppingListProps) {
               <Box sx={{ display: 'flex', gap: 0.8 }}>
                 <Button
                   size="small"
-                  variant={filterMode === 'all' ? 'contained' : 'outlined'}
-                  onClick={() => setFilterMode('all')}
-                  sx={{ flex: 1, textTransform: 'none', fontWeight: 700, borderRadius: '100px', boxShadow: 'none' }}
-                >
-                  Alles ({items.length})
-                </Button>
-                <Button
-                  size="small"
                   variant={filterMode === 'active' ? 'contained' : 'outlined'}
                   onClick={() => setFilterMode('active')}
                   sx={{ flex: 1, textTransform: 'none', fontWeight: 700, borderRadius: '100px', boxShadow: 'none' }}
                 >
-                  Actief ({items.filter(i => !i.completed).length})
+                  Active Boodschappen ({items.filter(i => !i.completed).length})
                 </Button>
                 <Button
                   size="small"
@@ -296,7 +405,7 @@ export default function ShoppingList({ activeProfile }: ShoppingListProps) {
                   onClick={() => setFilterMode('completed')}
                   sx={{ flex: 1, textTransform: 'none', fontWeight: 700, borderRadius: '100px', boxShadow: 'none' }}
                 >
-                  Gereed
+                  Gearchiveerd ({items.filter(i => i.completed).length})
                 </Button>
               </Box>
 
@@ -369,7 +478,7 @@ export default function ShoppingList({ activeProfile }: ShoppingListProps) {
                     }}
                   >
                     {/* Category Title Header */}
-                    <Box sx={{ backgroundColor: '#FAF7F5', px: 2.5, py: 1.5, borderBottom: '1px solid #F0E0D6', display: 'flex', justifyBetween: 'space-between', alignItems: 'center' }}>
+                    <Box sx={{ backgroundColor: '#FAF7F5', px: 2.5, py: 1.5, borderBottom: '1px solid #F0E0D6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Typography variant="subtitle2" sx={{ fontWeight: 850, color: '#311300' }}>
                           {category.label}
@@ -383,83 +492,91 @@ export default function ShoppingList({ activeProfile }: ShoppingListProps) {
                     </Box>
 
                     {/* Category Items List */}
-                    <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                      {categoryItems.map((item, index) => (
-                        <Box
-                          key={item.id}
-                          sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            px: 2,
-                            py: 1.5,
-                            borderBottom: index < categoryItems.length - 1 ? '1px solid #F0E0D6' : 'none',
-                            backgroundColor: item.completed ? 'rgba(0, 0, 0, 0.01)' : '#ffffff',
-                            transition: 'all 0.15s ease',
-                          }}
-                        >
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
-                            <Checkbox
-                              checked={!!item.completed}
-                              onChange={() => handleToggleItemStatus(item)}
-                              color="primary"
-                              sx={{ p: 0.5, color: '#CBB2A6', '&.Mui-checked': { color: '#8F4E00' } }}
-                            />
-                            
-                            <Box sx={{ ml: 0.5 }}>
-                              <Typography
-                                variant="body2"
-                                sx={{
-                                  fontWeight: 700,
-                                  color: item.completed ? 'text.secondary' : '#311300',
-                                  textDecoration: item.completed ? 'line-through' : 'none',
-                                  opacity: item.completed ? 0.6 : 1,
-                                }}
-                              >
-                                {item.name}
-                              </Typography>
-                              {item.amount && (
-                                <Typography
-                                  variant="caption"
-                                  color="text.secondary"
-                                  sx={{
-                                    display: 'block',
-                                    fontWeight: 700,
-                                    color: '#8F4E00',
-                                    opacity: item.completed ? 0.5 : 0.8
-                                  }}
-                                >
-                                  {item.amount}
-                                </Typography>
-                              )}
-                            </Box>
-                          </Box>
-
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            {/* Member initial badge */}
-                            <Chip
-                              size="small"
-                              avatar={<User size={10} />}
-                              label={item.addedBy}
+                    <Box sx={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                      <AnimatePresence initial={false}>
+                        {categoryItems.map((item, index) => (
+                          <motion.div
+                            key={item.id}
+                            initial={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0, overflow: 'hidden', scale: 0.95 }}
+                            transition={{ duration: 0.22, ease: 'easeInOut' }}
+                          >
+                            <Box
                               sx={{
-                                height: 20,
-                                fontSize: '0.65rem',
-                                fontWeight: 700,
-                                backgroundColor: 'rgba(0, 0, 0, 0.04)',
-                                color: 'text.secondary'
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                px: 2,
+                                py: 1.5,
+                                borderBottom: index < categoryItems.length - 1 ? '1px solid #F0E0D6' : 'none',
+                                backgroundColor: item.completed ? 'rgba(0, 0, 0, 0.01)' : '#ffffff',
+                                transition: 'all 0.15s ease',
                               }}
-                            />
-                            
-                            <IconButton
-                              size="small"
-                              onClick={() => handleDeleteItem(item.id)}
-                              sx={{ color: '#CBB2A6', '&:hover': { color: '#d32f2f' } }}
                             >
-                              <Trash2 size={15} />
-                            </IconButton>
-                          </Box>
-                        </Box>
-                      ))}
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
+                                <Checkbox
+                                  checked={!!item.completed}
+                                  onChange={() => handleToggleItemStatus(item)}
+                                  color="primary"
+                                  sx={{ p: 0.5, color: '#CBB2A6', '&.Mui-checked': { color: '#8F4E00' } }}
+                                />
+                                
+                                <Box sx={{ ml: 0.5 }}>
+                                  <Typography
+                                    variant="body2"
+                                    sx={{
+                                      fontWeight: 700,
+                                      color: item.completed ? 'text.secondary' : '#311300',
+                                      textDecoration: item.completed ? 'line-through' : 'none',
+                                      opacity: item.completed ? 0.6 : 1,
+                                    }}
+                                  >
+                                    {item.name}
+                                  </Typography>
+                                  {item.amount && (
+                                    <Typography
+                                      variant="caption"
+                                      color="text.secondary"
+                                      sx={{
+                                        display: 'block',
+                                        fontWeight: 700,
+                                        color: '#8F4E00',
+                                        opacity: item.completed ? 0.5 : 0.8
+                                      }}
+                                    >
+                                      {item.amount}
+                                    </Typography>
+                                  )}
+                                </Box>
+                              </Box>
+
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                {/* Member initial badge */}
+                                <Chip
+                                  size="small"
+                                  avatar={<User size={10} />}
+                                  label={item.addedBy}
+                                  sx={{
+                                    height: 20,
+                                    fontSize: '0.65rem',
+                                    fontWeight: 700,
+                                    backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                                    color: 'text.secondary'
+                                  }}
+                                />
+                                
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleDeleteItem(item.id)}
+                                  sx={{ color: '#CBB2A6', '&:hover': { color: '#d32f2f' } }}
+                                >
+                                  <Trash2 size={15} />
+                                </IconButton>
+                              </Box>
+                            </Box>
+                          </motion.div>
+                        ))}
+                      </AnimatePresence>
                     </Box>
                   </Paper>
                 );

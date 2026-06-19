@@ -33,6 +33,10 @@ export interface Rating {
 export interface Member {
   id: string;
   name: string;
+  password?: string;
+  avatarColor?: string;
+  avatarLetter?: string;
+  avatarIcon?: string;
   createdAt: any;
 }
 

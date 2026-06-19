@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="wheel-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFEDD5;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FED7AA;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="accent-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#EA580C;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#C2410C;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <drop-shadow dx="0" dy="8" stdDeviation="12" flood-color="#7C2D12" flood-opacity="0.15" />
+    </filter>
+  </defs>
+
+  <!-- Background Canvas -->
+  <rect width="512" height="512" rx="112" fill="#FFFDFB" />
+  
+  <!-- Outer Decorative Ring -->
+  <rect x="16" y="16" width="480" height="480" rx="96" fill="none" stroke="#FDE8D1" stroke-width="6" stroke-dasharray="16 12" />
+
+  <!-- Main Spinning Plate/Wheel Group with Shadow -->
+  <g filter="url(#shadow)">
+    <!-- Plate Background -->
+    <circle cx="256" cy="256" r="170" fill="url(#wheel-grad)" stroke="#F97316" stroke-width="4" />
+    
+    <!-- Outer Plate Rim Circle -->
+    <circle cx="256" cy="256" r="148" fill="none" stroke="#FDBA74" stroke-width="2" stroke-dasharray="8 6" />
+
+    <!-- Wheel Wedges (Visual segments representing shared meals) -->
+    <!-- Segment 1 Line -->
+    <line x1="256" y1="86" x2="256" y2="426" stroke="#EA580C" stroke-width="3" opacity="0.3" />
+    <!-- Segment 2 Line -->
+    <line x1="86" y1="256" x2="426" y2="256" stroke="#EA580C" stroke-width="3" opacity="0.3" />
+    <!-- Diagonal 1 -->
+    <line x1="136" y1="136" x2="376" y2="376" stroke="#EA580C" stroke-width="3" opacity="0.3" />
+    <!-- Diagonal 2 -->
+    <line x1="376" y1="136" x2="136" y2="376" stroke="#EA580C" stroke-width="3" opacity="0.3" />
+
+    <!-- Fork & Spoon Icons inside plate -->
+    <g transform="translate(256, 256) scale(0.9)">
+      <!-- Fork -->
+      <path d="M -35 -50 L -35 0 C -35 15, -15 15, -15 0 L -15 -50 M -30 -50 L -30 -20 M -20 -50 L -20 -20 M -25 12 L -25 50" fill="none" stroke="#8F4E00" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+      
+      <!-- Spoon -->
+      <path d="M 25 -50 C 12 -50, 12 -20, 25 -10 C 38 -20, 38 -50, 25 -50 Z M 25 -10 L 25 50" fill="none" stroke="#8F4E00" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+    </g>
+
+    <!-- Center Cap / Pointer Wheel Center -->
+    <circle cx="256" cy="256" r="28" fill="url(#accent-grad)" stroke="#FFF" stroke-width="4" />
+    <circle cx="256" cy="256" r="8" fill="#FFF" />
+  </g>
+
+  <!-- Needle/Indicator Pointer on Top -->
+  <path d="M 256 56 L 274 94 L 238 94 Z" fill="#EA580C" filter="drop-shadow(0px 3px 2px rgba(120,40,0,0.3))" />
+</svg>

@@ -24,12 +24,13 @@ import {
   DialogContent,
   DialogActions,
   Button,
-  IconButton
+  IconButton,
+  Alert
 } from '@mui/material';
-import { Search, Calendar, User, Tag, Star, Trash2, X, Plus, Check, ShoppingBag, ShoppingCart } from 'lucide-react';
-import { Dish, Rating as RatingType, Member } from '../types';
+import { Search, Calendar, User, Tag, Star, Trash2, X, Plus, Check, ShoppingBag, ShoppingCart, Pencil } from 'lucide-react';
+import { Dish, Rating as RatingType, Member, Ingredient } from '../types';
 import { MealDatabase } from '../lib/db';
-import { getAvatarColor } from './ProfilePicker';
+import { getAvatarColor, avatarIconsMap } from './ProfilePicker';
 
 interface DishListProps {
   dishes: Dish[];
@@ -40,6 +41,29 @@ interface DishListProps {
 
 type SortOption = 'rating' | 'date' | 'name';
 
+const SH_CATEGORIES = [
+  { value: 'Groenten & Fruit', label: '🥦 Groenten & Fruit' },
+  { value: 'Zuivel', label: '🥛 Zuivel' },
+  { value: 'Vlees & Vis', label: '🥩 Vlees & Vis' },
+  { value: 'Bakkerij', label: '🍞 Bakkerij' },
+  { value: 'Kruidenier & Droogwaren', label: '🥫 Kruidenier & Droogwaren' },
+  { value: 'Dranken & Snacks', label: '🥤 Dranken & Snacks' },
+  { value: 'Huishoudelijk & Verzorging', label: '🧼 Huishoudelijk & Verzorging' },
+  { value: 'Overig', label: '📦 Overig' }
+];
+
+const cuisinePresets = [
+  'Italiaans',
+  'Belgisch',
+  'Hollands',
+  'Aziatisch',
+  'Mexicaans',
+  'Frans',
+  'Amerikaans',
+  'Grieks',
+  'Overig'
+];
+
 export default function DishList({ dishes, ratingsMap, members, activeProfile }: DishListProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('rating');
@@ -47,6 +71,157 @@ export default function DishList({ dishes, ratingsMap, members, activeProfile }:
   const [openDeleteConfirm, setOpenDeleteConfirm] = useState(false);
   const [addedIngMap, setAddedIngMap] = useState<{ [key: string]: boolean }>({});
   const [addingAllLoading, setAddingAllLoading] = useState(false);
+
+  // Edit Dish states
+  const [isEditingDish, setIsEditingDish] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editCuisine, setEditCuisine] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editImageUrl, setEditImageUrl] = useState('');
+  const [editRecipe, setEditRecipe] = useState('');
+  const [editTags, setEditTags] = useState<string[]>([]);
+  const [editNewTagInput, setEditNewTagInput] = useState('');
+  const [editSuitableMoments, setEditSuitableMoments] = useState<string[]>(['Warm eten']);
+  
+  // Ingredients management for editing
+  const [editIngredients, setEditIngredients] = useState<Ingredient[]>([]);
+  const [editIngName, setEditIngName] = useState('');
+  const [editIngAmount, setEditIngAmount] = useState('');
+  const [editIngCategory, setEditIngCategory] = useState('Groenten & Fruit');
+  const [editError, setEditError] = useState('');
+  const [editSuccess, setEditSuccess] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
+
+  // Edit Dish supporting handlers
+  const handleStartEditDish = (dish: Dish) => {
+    setEditName(dish.name);
+    setEditCuisine(dish.cuisine || '');
+    setEditDescription(dish.description || '');
+    setEditImageUrl(dish.imageUrl || '');
+    setEditRecipe(dish.recipe || '');
+    setEditTags(dish.tags || []);
+    setEditSuitableMoments(dish.suitableMoments || ['Warm eten']);
+    setEditIngredients(dish.ingredients || []);
+    setEditNewTagInput('');
+    setEditIngName('');
+    setEditIngAmount('');
+    setEditIngCategory('Groenten & Fruit');
+    setEditError('');
+    setEditSuccess(false);
+    setIsEditingDish(true);
+  };
+
+  const handleAddEditIngredient = () => {
+    const trimmed = editIngName.trim();
+    if (!trimmed) return;
+    
+    if (editIngredients.some(ing => ing.name.toLowerCase() === trimmed.toLowerCase())) {
+      setEditError('Dit ingrediënt staat al in de lijst!');
+      return;
+    }
+
+    setEditIngredients([
+      ...editIngredients,
+      {
+        name: trimmed,
+        amount: editIngAmount.trim() || undefined,
+        category: editIngCategory
+      }
+    ]);
+    
+    setEditIngName('');
+    setEditIngAmount('');
+    setEditError('');
+  };
+
+  const handleRemoveEditIngredient = (index: number) => {
+    setEditIngredients(editIngredients.filter((_, i) => i !== index));
+  };
+
+  const handleToggleEditMoment = (moment: string) => {
+    if (editSuitableMoments.includes(moment)) {
+      if (editSuitableMoments.length > 1) {
+        setEditSuitableMoments(editSuitableMoments.filter(m => m !== moment));
+      }
+    } else {
+      setEditSuitableMoments([...editSuitableMoments, moment]);
+    }
+  };
+
+  const handleAddEditTag = () => {
+    const trimmed = editNewTagInput.trim();
+    if (trimmed && !editTags.includes(trimmed)) {
+      if (trimmed.length > 20) {
+        setEditError('Tag is te lang! Maximaal 20 tekens.');
+        return;
+      }
+      setEditTags([...editTags, trimmed]);
+      setEditNewTagInput('');
+      setEditError('');
+    }
+  };
+
+  const handleRemoveEditTag = (tag: string) => {
+    setEditTags(editTags.filter(t => t !== tag));
+  };
+
+  const handleEditImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 1200000) {
+      setEditError('De geselecteerde afbeelding is groter dan 1MB. Selecteer een kleiner bestand!');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setEditImageUrl(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveEditDish = async () => {
+    if (!editName.trim()) {
+      setEditError('Naam is verplicht.');
+      return;
+    }
+    if (!selectedDish) return;
+
+    setEditLoading(true);
+    setEditError('');
+    try {
+      const updates = {
+        name: editName.trim(),
+        cuisine: editCuisine.trim() || undefined,
+        description: editDescription.trim() || undefined,
+        imageUrl: editImageUrl.trim() || undefined,
+        recipe: editRecipe.trim() || undefined,
+        tags: editTags,
+        suitableMoments: editSuitableMoments,
+        ingredients: editIngredients,
+      };
+
+      await MealDatabase.updateDish(selectedDish.id, updates);
+      
+      // Update our selectedDish reference automatically
+      setSelectedDish({
+        ...selectedDish,
+        ...updates
+      } as Dish);
+
+      setEditSuccess(true);
+      setTimeout(() => {
+        setIsEditingDish(false);
+        setEditSuccess(false);
+      }, 1000);
+    } catch (e) {
+      setEditError('Fout bij het opslaan van de wijzigingen.');
+      console.error(e);
+    } finally {
+      setEditLoading(false);
+    }
+  };
 
   const handleCloseDetail = () => {
     setSelectedDish(null);
@@ -365,7 +540,7 @@ export default function DishList({ dishes, ratingsMap, members, activeProfile }:
             </IconButton>
 
             {/* Dialog header title without top cover image */}
-            <DialogTitle sx={{ fontWeight: 900, pb: 1, pt: 3.5, px: 3, pr: 7, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <DialogTitle component="div" sx={{ fontWeight: 900, pb: 1, pt: 3.5, px: 3, pr: 7, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <Box sx={{ minWidth: 0, flex: 1 }}>
                 <Typography variant="h4" sx={{ fontWeight: 900, mb: 0.5, color: '#311300', fontSize: { xs: '1.4rem', sm: '1.75rem' } }}>
                   {selectedDish.name}
@@ -378,6 +553,19 @@ export default function DishList({ dishes, ratingsMap, members, activeProfile }:
                   />
                 )}
               </Box>
+              <IconButton
+                onClick={() => handleStartEditDish(selectedDish)}
+                sx={{
+                  backgroundColor: 'rgba(143, 78, 0, 0.06)',
+                  color: '#8F4E00',
+                  '&:hover': { backgroundColor: 'rgba(143, 78, 0, 0.12)' },
+                  ml: 2,
+                  flexShrink: 0
+                }}
+              >
+                <Pencil size={20} />
+              </IconButton>
+
               <IconButton
                 color="error"
                 onClick={() => setOpenDeleteConfirm(true)}
@@ -698,11 +886,18 @@ export default function DishList({ dishes, ratingsMap, members, activeProfile }:
                                   height: 28,
                                   fontSize: '0.8rem',
                                   fontWeight: 'bold',
-                                  backgroundColor: getAvatarColor(member.name),
+                                  backgroundColor: member.avatarColor || getAvatarColor(member.name),
+                                  color: '#ffffff',
                                   mr: 1.5,
                                 }}
                               >
-                                {member.name.charAt(0).toUpperCase()}
+                                {(() => {
+                                  const IconComp = member.avatarIcon ? avatarIconsMap[member.avatarIcon] : null;
+                                  if (IconComp) {
+                                    return <IconComp size={15} />;
+                                  }
+                                  return member.avatarLetter || member.name.charAt(0).toUpperCase();
+                                })()}
                               </Avatar>
                               <Box sx={{ flexGrow: 1, minWidth: 0 }}>
                                 <Typography variant="body2" sx={{ fontWeight: 700, color: '#311300', fontSize: '0.82rem' }}>
@@ -769,6 +964,332 @@ export default function DishList({ dishes, ratingsMap, members, activeProfile }:
             color="error"
           >
             Definitief Verwijderen
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit Dish Dialog */}
+      <Dialog
+        open={isEditingDish}
+        onClose={() => setIsEditingDish(false)}
+        maxWidth="md"
+        fullWidth
+        scroll="paper"
+        sx={{
+          '& .MuiDialog-paper': {
+            borderRadius: '24px',
+            boxShadow: '0 12px 36px rgba(49, 19, 0, 0.12)',
+            maxHeight: '92vh',
+          }
+        }}
+      >
+        <DialogTitle component="div" sx={{ fontWeight: 900, pb: 1, pr: 7, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="h5" sx={{ fontWeight: 900, color: '#311300' }}>
+            Gerecht bewerken
+          </Typography>
+          <IconButton
+            onClick={() => setIsEditingDish(false)}
+            sx={{
+              color: '#311300',
+              backgroundColor: 'rgba(0, 0, 0, 0.04)',
+              '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.08)' }
+            }}
+            size="small"
+          >
+            <X size={18} />
+          </IconButton>
+        </DialogTitle>
+
+        <DialogContent sx={{ pb: 4, px: 3, overflowY: 'auto' }}>
+          {editError && (
+            <Alert severity="error" sx={{ mb: 3, borderRadius: '12px' }}>
+              {editError}
+            </Alert>
+          )}
+
+          {editSuccess && (
+            <Alert severity="success" sx={{ mb: 3, borderRadius: '12px' }}>
+              Wijzigingen succesvol opgeslagen!
+            </Alert>
+          )}
+
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1.2fr 1fr' }, gap: 3.5, mt: 1 }}>
+            {/* Left side standard inputs */}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+              <TextField
+                fullWidth
+                required
+                label="Naam van het gerecht"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder="Bijv. Spaghetti Bolognese"
+                variant="outlined"
+              />
+
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: 800, mb: 1, color: '#8F4E00' }}>
+                  Keuken / Type preset
+                </Typography>
+                <FormControl fullWidth>
+                  <Select
+                    value={editCuisine}
+                    onChange={(e) => setEditCuisine(e.target.value)}
+                    displayEmpty
+                    sx={{ borderRadius: '12px' }}
+                  >
+                    <MenuItem value="">-- Selecteer keuken --</MenuItem>
+                    {cuisinePresets.map((preset) => (
+                      <MenuItem key={preset} value={preset}>
+                        {preset}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
+
+              <TextField
+                fullWidth
+                multiline
+                rows={3}
+                label="Beschrijving (over het gerecht)"
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                placeholder="Bijv. Een klassiek Italiaans recept meegekregen van oma..."
+              />
+
+              <TextField
+                fullWidth
+                multiline
+                rows={6}
+                label="Recept, instructies & bereiding"
+                value={editRecipe}
+                onChange={(e) => setEditRecipe(e.target.value)}
+                placeholder="Beschrijf hier de stappen om het gerecht klaar te maken..."
+              />
+
+              {/* Cover image upload / link */}
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: 800, mb: 1, color: '#8F4E00' }}>
+                  Foto van het gerecht
+                </Typography>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Afbeeldings-URL (of upload hieronder)"
+                    value={editImageUrl}
+                    onChange={(e) => setEditImageUrl(e.target.value)}
+                    placeholder="https://images.unsplash.com/..."
+                  />
+                  
+                  <Button
+                    variant="outlined"
+                    component="label"
+                    sx={{ textTransform: 'none', fontWeight: 800, borderRadius: '8px' }}
+                  >
+                    Upload afbeelding (.png, .jpg)
+                    <input
+                      type="file"
+                      hidden
+                      accept="image/*"
+                      onChange={handleEditImageUpload}
+                    />
+                  </Button>
+
+                  {editImageUrl && (
+                    <Box sx={{ width: '100%', height: 130, borderRadius: '12px', overflow: 'hidden', border: '1px solid #F0E0D6' }}>
+                      <img src={editImageUrl} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    </Box>
+                  )}
+                </Box>
+              </Box>
+            </Box>
+
+            {/* Right side ingredients & moments */}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3.5 }}>
+              {/* Suitable moments checklist */}
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: 800, mb: 1.5, color: '#8F4E00' }}>
+                  Geschikte momenten
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                  {['Warm eten', 'Lunch', 'Ontbijt', 'Snack', 'Feestelijk'].map((moment) => {
+                    const isActive = editSuitableMoments.includes(moment);
+                    return (
+                      <Chip
+                        key={moment}
+                        label={moment}
+                        onClick={() => handleToggleEditMoment(moment)}
+                        color={isActive ? 'primary' : 'default'}
+                        sx={{
+                          fontWeight: 800,
+                          borderRadius: '100px',
+                          cursor: 'pointer',
+                          backgroundColor: isActive ? '#8F4E00' : 'rgba(0,0,0,0.04)',
+                          color: isActive ? '#ffffff' : 'text.primary',
+                          '&:hover': {
+                            backgroundColor: isActive ? '#733e00' : 'rgba(0,0,0,0.08)',
+                          }
+                        }}
+                      />
+                    );
+                  })}
+                </Box>
+              </Box>
+
+              {/* Sub-tags section */}
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: 800, mb: 1, color: '#8F4E00' }}>
+                  Tags & Kenmerken
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1, mb: 1.5 }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    placeholder="Bijv. Snel, Vega, Slank"
+                    value={editNewTagInput}
+                    onChange={(e) => setEditNewTagInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddEditTag();
+                      }
+                    }}
+                  />
+                  <Button
+                    variant="contained"
+                    onClick={handleAddEditTag}
+                    sx={{ minWidth: 46, px: 0, borderRadius: '8px' }}
+                  >
+                    <Plus size={18} />
+                  </Button>
+                </Box>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                  {editTags.map((tag) => (
+                    <Chip
+                      key={tag}
+                      label={tag}
+                      onDelete={() => handleRemoveEditTag(tag)}
+                      size="small"
+                      sx={{ fontWeight: 700, backgroundColor: '#FFDCC0', color: '#311300' }}
+                    />
+                  ))}
+                </Box>
+              </Box>
+
+              {/* Interactive Ingredients List */}
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: 800, mb: 1.5, color: '#8F4E00' }}>
+                  Benodigde ingrediënten ({editIngredients.length})
+                </Typography>
+
+                <Box sx={{ p: 2, borderRadius: '16px', border: '1px solid #F0E0D6', backgroundColor: '#FEF7F3', display: 'flex', flexDirection: 'column', gap: 2, mb: 2 }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Ingrediënt naam"
+                    value={editIngName}
+                    onChange={(e) => setEditIngName(e.target.value)}
+                    placeholder="Bijv. Penne pasta, Tomatenblokjes"
+                  />
+                  
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <TextField
+                      size="small"
+                      label="Hoeveelheid"
+                      value={editIngAmount}
+                      onChange={(e) => setEditIngAmount(e.target.value)}
+                      placeholder="Bijv. 500g, 1 blik"
+                      sx={{ flex: 1.2 }}
+                    />
+                    <FormControl size="small" sx={{ flex: 1.8 }}>
+                      <InputLabel id="edit-ing-cat-label">Categorie</InputLabel>
+                      <Select
+                        labelId="edit-ing-cat-label"
+                        value={editIngCategory}
+                        label="Categorie"
+                        onChange={(e) => setEditIngCategory(e.target.value)}
+                        sx={{ borderRadius: '8px' }}
+                      >
+                        {SH_CATEGORIES.map((cat) => (
+                          <MenuItem key={cat.value} value={cat.value}>
+                            {cat.label}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Box>
+
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<Plus size={14} />}
+                    onClick={handleAddEditIngredient}
+                    sx={{ textTransform: 'none', fontWeight: 800, borderRadius: '8px' }}
+                  >
+                    Ingrediënt toevoegen
+                  </Button>
+                </Box>
+
+                {/* Ingredients array outputs */}
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, maxHeight: 220, overflowY: 'auto' }}>
+                  {editIngredients.map((ing, idx) => (
+                    <Box
+                      key={idx}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        p: 1.2,
+                        borderRadius: '10px',
+                        border: '1px solid #F0E0D6',
+                        backgroundColor: '#ffffff'
+                      }}
+                    >
+                      <Box sx={{ minWidth: 0, flexGrow: 1 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 700, color: '#311300' }}>
+                          {ing.name}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {ing.amount || 'Naar smaak'} • {ing.category}
+                        </Typography>
+                      </Box>
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => handleRemoveEditIngredient(idx)}
+                      >
+                        <Trash2 size={14} />
+                      </IconButton>
+                    </Box>
+                  ))}
+                  {editIngredients.length === 0 && (
+                    <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic', pl: 1 }}>
+                      Nog geen ingrediënten geconfigureerd.
+                    </Typography>
+                  )}
+                </Box>
+              </Box>
+            </Box>
+          </Box>
+        </DialogContent>
+
+        <DialogActions sx={{ px: 3, pb: 3, borderTop: '1px solid #F0E0D6' }}>
+          <Button
+            onClick={() => setIsEditingDish(false)}
+            variant="text"
+            sx={{ textTransform: 'none', fontWeight: 800, color: 'text.secondary' }}
+            disabled={editLoading}
+          >
+            Annuleren
+          </Button>
+          <Button
+            onClick={handleSaveEditDish}
+            variant="contained"
+            sx={{ textTransform: 'none', fontWeight: 800, borderRadius: '100px', px: 3 }}
+            disabled={editLoading}
+          >
+            {editLoading ? 'Opslaan...' : 'Gerecht opslaan'}
           </Button>
         </DialogActions>
       </Dialog>

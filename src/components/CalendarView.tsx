@@ -83,7 +83,9 @@ export default function CalendarView({
       const diff = d.getDate() - day + (day === 0 ? -6 : 1);
       const targetMonday = new Date(d.setDate(diff));
       
-      setCurrentWeekStart(targetMonday);
+      if (currentWeekStart.getTime() !== targetMonday.getTime()) {
+        setCurrentWeekStart(targetMonday);
+      }
 
       if (highlightedSlot) {
         const timer = setTimeout(() => {
@@ -95,7 +97,7 @@ export default function CalendarView({
         return () => clearTimeout(timer);
       }
     }
-  }, [initialFocusDate, highlightedSlot]);
+  }, [initialFocusDate, highlightedSlot?.date, highlightedSlot?.slot]);
 
   // Modal actions and state tracking
   const [openModal, setOpenModal] = useState(false);

@@ -56,23 +56,108 @@ export const MealDatabase = {
     };
   },
 
-  async addMember(name: string): Promise<void> {
+  async addMember(name: string, password?: string, avatarColor?: string, avatarLetter?: string, avatarIcon?: string): Promise<any> {
     try {
-      await fetchJSON('/api/members', {
+      const data = await fetchJSON('/api/members', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name })
+        body: JSON.stringify({ name, password, avatarColor, avatarLetter, avatarIcon })
       });
+      return data;
     } catch (e) {
       console.warn("Backend addMember failed, writing to local storage too.", e);
       // Fallback local storage sync
       const localRaw = localStorage.getItem('we_members') || '[]';
       const list = JSON.parse(localRaw);
       const cleanId = name.toLowerCase().replace(/[^a-z0-9]/g, '_');
-      if (!list.some((m: any) => m.name.toLowerCase() === name.toLowerCase())) {
-        list.push({ id: cleanId, name, createdAt: new Date().toISOString() });
+      const existing = list.find((m: any) => m.name.toLowerCase() === name.toLowerCase());
+      if (!existing) {
+        const newItem = {
+          id: cleanId,
+          name,
+          password: password || name.toLowerCase(),
+          avatarColor: avatarColor || '#8F4E00',
+          avatarLetter: avatarLetter || name.charAt(0).toUpperCase(),
+          avatarIcon: avatarIcon || '',
+          createdAt: new Date().toISOString()
+        };
+        list.push(newItem);
         localStorage.setItem('we_members', JSON.stringify(list));
+        return newItem;
       }
+      return existing;
+    }
+  },
+
+  async loginMember(name: string, password?: string): Promise<any> {
+    try {
+      const resp = await fetchJSON('/api/members/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, password })
+      });
+      return resp; // returns { success: true, member }
+    } catch (e) {
+      console.warn("Backend loginMember failed, running localStorage authentication fallback.", e);
+      const localRaw = localStorage.getItem('we_members');
+      if (localRaw) {
+        const list = JSON.parse(localRaw);
+        const matched = list.find((m: any) => m.name.toLowerCase() === name.toLowerCase());
+        if (matched) {
+          const passMatches = (matched.password || '').trim().toLowerCase() === (password || '').trim().toLowerCase();
+          if (passMatches) {
+            const { password: _, ...rest } = matched;
+            return { success: true, member: rest };
+          }
+        }
+      }
+      // Basic fallback
+      const defaultMembers = [
+        { id: 'papa', name: 'Papa', password: 'papa' },
+        { id: 'mama', name: 'Mama', password: 'mama' },
+        { id: 'tibo', name: 'Tibo', password: 'tibo' },
+        { id: 'briek', name: 'Briek', password: 'briek' }
+      ];
+      const matchDefault = defaultMembers.find(m => m.name.toLowerCase() === name.toLowerCase());
+      if (matchDefault && matchDefault.password === (password || '').toLowerCase()) {
+        return {
+          success: true,
+          member: {
+            id: matchDefault.id,
+            name: matchDefault.name,
+            avatarColor: '#8F4E00',
+            avatarLetter: matchDefault.name.charAt(0)
+          }
+        };
+      }
+      throw new Error("Onjuiste naam of wachtwoord.");
+    }
+  },
+
+  async updateMember(memberId: string, updates: Partial<Member>): Promise<any> {
+    try {
+      const resp = await fetchJSON(`/api/members/${memberId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+      return resp; // returns { success: true, member }
+    } catch (e) {
+      console.warn("Backend updateMember failed, saving to localStorage.", e);
+      const localRaw = localStorage.getItem('we_members') || '[]';
+      const list = JSON.parse(localRaw);
+      const idx = list.findIndex((m: any) => m.id === memberId);
+      if (idx !== -1) {
+        const oldMember = list[idx];
+        const updated = { ...oldMember, ...updates };
+        if (updates.name) {
+          updated.id = updates.name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+        }
+        list[idx] = updated;
+        localStorage.setItem('we_members', JSON.stringify(list));
+        return { success: true, member: updated };
+      }
+      throw new Error("Lid niet gevonden.");
     }
   },
 
@@ -128,6 +213,25 @@ export const MealDatabase = {
       list.push(val);
       localStorage.setItem('we_dishes', JSON.stringify(list));
       return generatedId;
+    }
+  },
+
+  async updateDish(dishId: string, updates: Partial<Omit<Dish, 'id' | 'createdAt'>>): Promise<void> {
+    try {
+      await fetchJSON(`/api/dishes/${dishId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+    } catch (e) {
+      console.warn("Backend updateDish failed, using local storage fallback", e);
+      const raw = localStorage.getItem('we_dishes') || '[]';
+      const list = JSON.parse(raw);
+      const idx = list.findIndex((d: any) => d.id === dishId);
+      if (idx !== -1) {
+        list[idx] = { ...list[idx], ...updates };
+        localStorage.setItem('we_dishes', JSON.stringify(list));
+      }
     }
   },
 
@@ -328,13 +432,69 @@ export const MealDatabase = {
       const raw = localStorage.getItem('we_shopping_list') || '[]';
       const list = JSON.parse(raw);
       const incoming = Array.isArray(items) ? items : [items];
+
+      const mergeAmounts = (a: string, b: string): string => {
+        a = (a || '').trim();
+        b = (b || '').trim();
+        if (!a) return b;
+        if (!b) return a;
+
+        const regex = /^([\d.,]+)\s*(.*)$/;
+        const matchA = a.match(regex);
+        const matchB = b.match(regex);
+
+        if (matchA && matchB) {
+          const numA = parseFloat(matchA[1].replace(',', '.'));
+          const numB = parseFloat(matchB[1].replace(',', '.'));
+          const unitA = matchA[2].trim().toLowerCase();
+          const unitB = matchB[2].trim().toLowerCase();
+
+          if (!isNaN(numA) && !isNaN(numB)) {
+            if (unitA === unitB) {
+              const sum = numA + numB;
+              const formattedSum = Number(sum.toFixed(2));
+              return matchA[2].trim() ? `${formattedSum} ${matchA[2].trim()}` : `${formattedSum}`;
+            }
+            const gUnits = ['g', 'gr', 'gram'];
+            if (gUnits.includes(unitA) && gUnits.includes(unitB)) {
+              const sum = numA + numB;
+              return `${Number(sum.toFixed(2))} g`;
+            }
+            return `${a} + ${b}`;
+          }
+        }
+
+        if (a.toLowerCase() === b.toLowerCase()) {
+          return a;
+        }
+        return `${a} + ${b}`;
+      };
       
       incoming.forEach(it => {
-        list.push({
-          ...it,
-          id: Math.random().toString(36).substring(2, 11),
-          createdAt: new Date().toISOString()
-        });
+        const nameNorm = (it.name || '').trim().toLowerCase();
+        const categoryVal = it.category || 'Overig';
+        const isCompleted = !!it.completed;
+        let merged = false;
+
+        if (!isCompleted) {
+          const idx = list.findIndex((x: any) => 
+            !x.completed && 
+            (x.name || '').trim().toLowerCase() === nameNorm && 
+            (x.category || 'Overig') === categoryVal
+          );
+          if (idx !== -1) {
+            list[idx].amount = mergeAmounts(list[idx].amount, it.amount);
+            merged = true;
+          }
+        }
+
+        if (!merged) {
+          list.push({
+            ...it,
+            id: Math.random().toString(36).substring(2, 11),
+            createdAt: new Date().toISOString()
+          });
+        }
       });
       localStorage.setItem('we_shopping_list', JSON.stringify(list));
     }
