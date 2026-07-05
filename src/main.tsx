@@ -3,6 +3,15 @@ import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 
+// Gracefully intercept and suppress benign HMR/WebSocket development errors so they don't trigger intrusive crash overlays
+window.addEventListener('unhandledrejection', (event) => {
+  const reasonStr = event.reason ? String(event.reason.message || event.reason) : '';
+  if (reasonStr.includes('WebSocket') || reasonStr.includes('vite') || reasonStr.includes('hmr')) {
+    event.preventDefault();
+    console.debug('[Vite HMR] Benign development socket rejection suppressed:', reasonStr);
+  }
+});
+
 // Register Service Worker for PWA (with auto-updating on load)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

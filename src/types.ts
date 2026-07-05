@@ -15,6 +15,7 @@ export interface Dish {
   description?: string;
   cuisine?: string;
   imageUrl?: string;
+  prepTime?: number;
   recipe?: string;
   tags?: string[];
   suitableMoments?: string[]; // E.g., ['Ontbijt', 'Warm eten', 'Vieruurtje', Koud eten]

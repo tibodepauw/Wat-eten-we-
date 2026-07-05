@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -25,9 +25,10 @@ import {
   DialogActions,
   Button,
   IconButton,
-  Alert
+  Alert,
+  Checkbox
 } from '@mui/material';
-import { Search, Calendar, User, Tag, Star, Trash2, X, Plus, Check, ShoppingBag, ShoppingCart, Pencil } from 'lucide-react';
+import { Search, Calendar, User, Tag, Star, Trash2, X, Plus, Check, ShoppingBag, ShoppingCart, Pencil, Clock } from 'lucide-react';
 import { Dish, Rating as RatingType, Member, Ingredient } from '../types';
 import { MealDatabase } from '../lib/db';
 import { getAvatarColor, avatarIconsMap } from './ProfilePicker';
@@ -67,10 +68,12 @@ const cuisinePresets = [
 export default function DishList({ dishes, ratingsMap, members, activeProfile }: DishListProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('rating');
+  const [maxPrepTime, setMaxPrepTime] = useState<number | 'all'>('all');
   const [selectedDish, setSelectedDish] = useState<Dish | null>(null);
   const [openDeleteConfirm, setOpenDeleteConfirm] = useState(false);
   const [addedIngMap, setAddedIngMap] = useState<{ [key: string]: boolean }>({});
   const [addingAllLoading, setAddingAllLoading] = useState(false);
+  const [selectedIngredients, setSelectedIngredients] = useState<string[]>([]);
 
   // Edit Dish states
   const [isEditingDish, setIsEditingDish] = useState(false);
@@ -78,6 +81,7 @@ export default function DishList({ dishes, ratingsMap, members, activeProfile }:
   const [editCuisine, setEditCuisine] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editImageUrl, setEditImageUrl] = useState('');
+  const [editPrepTime, setEditPrepTime] = useState<number | ''>('');
   const [editRecipe, setEditRecipe] = useState('');
   const [editTags, setEditTags] = useState<string[]>([]);
   const [editNewTagInput, setEditNewTagInput] = useState('');
@@ -91,6 +95,7 @@ export default function DishList({ dishes, ratingsMap, members, activeProfile }:
   const [editError, setEditError] = useState('');
   const [editSuccess, setEditSuccess] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
+  const [editingEditIngredientIndex, setEditingEditIngredientIndex] = useState<number | null>(null);
 
   // Edit Dish supporting handlers
   const handleStartEditDish = (dish: Dish) => {
@@ -98,6 +103,7 @@ export default function DishList({ dishes, ratingsMap, members, activeProfile }:
     setEditCuisine(dish.cuisine || '');
     setEditDescription(dish.description || '');
     setEditImageUrl(dish.imageUrl || '');
+    setEditPrepTime(dish.prepTime !== undefined ? dish.prepTime : '');
     setEditRecipe(dish.recipe || '');
     setEditTags(dish.tags || []);
     setEditSuitableMoments(dish.suitableMoments || ['Warm eten']);
@@ -106,6 +112,7 @@ export default function DishList({ dishes, ratingsMap, members, activeProfile }:
     setEditIngName('');
     setEditIngAmount('');
     setEditIngCategory('Groenten & Fruit');
+    setEditingEditIngredientIndex(null);
     setEditError('');
     setEditSuccess(false);
     setIsEditingDish(true);
@@ -115,27 +122,64 @@ export default function DishList({ dishes, ratingsMap, members, activeProfile }:
     const trimmed = editIngName.trim();
     if (!trimmed) return;
     
-    if (editIngredients.some(ing => ing.name.toLowerCase() === trimmed.toLowerCase())) {
+    // Prevent duplicate ingredient names
+    const isDuplicate = editIngredients.some((ing, idx) => 
+      idx !== editingEditIngredientIndex && ing.name.toLowerCase() === trimmed.toLowerCase()
+    );
+    if (isDuplicate) {
       setEditError('Dit ingrediënt staat al in de lijst!');
       return;
     }
 
-    setEditIngredients([
-      ...editIngredients,
-      {
+    if (editingEditIngredientIndex !== null) {
+      const updated = [...editIngredients];
+      updated[editingEditIngredientIndex] = {
         name: trimmed,
         amount: editIngAmount.trim() || undefined,
         category: editIngCategory
-      }
-    ]);
+      };
+      setEditIngredients(updated);
+      setEditingEditIngredientIndex(null);
+    } else {
+      setEditIngredients([
+        ...editIngredients,
+        {
+          name: trimmed,
+          amount: editIngAmount.trim() || undefined,
+          category: editIngCategory
+        }
+      ]);
+    }
     
     setEditIngName('');
     setEditIngAmount('');
     setEditError('');
   };
 
+  const handleStartEditEditIngredient = (index: number) => {
+    const ing = editIngredients[index];
+    setEditIngName(ing.name);
+    setEditIngAmount(ing.amount || '');
+    setEditIngCategory(ing.category || 'Groenten & Fruit');
+    setEditingEditIngredientIndex(index);
+    setEditError('');
+  };
+
+  const handleCancelEditEditIngredient = () => {
+    setEditIngName('');
+    setEditIngAmount('');
+    setEditIngCategory('Groenten & Fruit');
+    setEditingEditIngredientIndex(null);
+    setEditError('');
+  };
+
   const handleRemoveEditIngredient = (index: number) => {
     setEditIngredients(editIngredients.filter((_, i) => i !== index));
+    if (editingEditIngredientIndex === index) {
+      handleCancelEditEditIngredient();
+    } else if (editingEditIngredientIndex !== null && editingEditIngredientIndex > index) {
+      setEditingEditIngredientIndex(editingEditIngredientIndex - 1);
+    }
   };
 
   const handleToggleEditMoment = (moment: string) => {
@@ -195,7 +239,8 @@ export default function DishList({ dishes, ratingsMap, members, activeProfile }:
         name: editName.trim(),
         cuisine: editCuisine.trim() || undefined,
         description: editDescription.trim() || undefined,
-        imageUrl: editImageUrl.trim() || undefined,
+        imageUrl: editImageUrl.trim() || '',
+        prepTime: editPrepTime !== '' ? Number(editPrepTime) : undefined,
         recipe: editRecipe.trim() || undefined,
         tags: editTags,
         suitableMoments: editSuitableMoments,
@@ -226,6 +271,52 @@ export default function DishList({ dishes, ratingsMap, members, activeProfile }:
   const handleCloseDetail = () => {
     setSelectedDish(null);
     setAddedIngMap({});
+    setSelectedIngredients([]);
+  };
+
+  // Automatically select all non-added ingredients when a dish is opened
+  useEffect(() => {
+    if (selectedDish?.ingredients) {
+      const nonAdded = selectedDish.ingredients
+        .filter(ing => !addedIngMap[ing.name])
+        .map(ing => ing.name);
+      setSelectedIngredients(nonAdded);
+    } else {
+      setSelectedIngredients([]);
+    }
+  }, [selectedDish]);
+
+  const handleAddSelectedIngredients = async () => {
+    if (!selectedDish?.ingredients) return;
+    setAddingAllLoading(true);
+    try {
+      const toAdd = selectedDish.ingredients.filter(ing => 
+        selectedIngredients.includes(ing.name) && !addedIngMap[ing.name]
+      );
+      if (toAdd.length === 0) return;
+
+      const itemsToPost = toAdd.map(ing => ({
+        name: ing.name,
+        amount: ing.amount || '',
+        category: ing.category || 'Overig',
+        completed: false,
+        addedBy: activeProfile
+      }));
+      await MealDatabase.addShoppingItems(itemsToPost);
+      
+      const updatedMap = { ...addedIngMap };
+      toAdd.forEach(ing => {
+        updatedMap[ing.name] = true;
+      });
+      setAddedIngMap(updatedMap);
+      
+      // Update local checked states as well
+      setSelectedIngredients(prev => prev.filter(name => !toAdd.some(t => t.name === name)));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setAddingAllLoading(false);
+    }
   };
 
   const handleAddSingleIngredientItem = async (ing: any) => {
@@ -285,6 +376,17 @@ export default function DishList({ dishes, ratingsMap, members, activeProfile }:
   // Filter and Sort Dishes
   const processedDishes = dishes
     .filter((dish) => {
+      // Filter by max preparation time
+      if (maxPrepTime !== 'all') {
+        const pTime = dish.prepTime;
+        if (pTime === undefined || pTime === null) {
+          return false; // exclude dishes without a time if a specific limit is selected
+        }
+        if (pTime > maxPrepTime) {
+          return false;
+        }
+      }
+      
       const nameMatch = dish.name.toLowerCase().includes(searchTerm.toLowerCase());
       const cuisineMatch = dish.cuisine?.toLowerCase().includes(searchTerm.toLowerCase()) || false;
       const descMatch = dish.description?.toLowerCase().includes(searchTerm.toLowerCase()) || false;
@@ -361,7 +463,25 @@ export default function DishList({ dishes, ratingsMap, members, activeProfile }:
             variant="outlined"
           />
         </Box>
-        <Box sx={{ minWidth: { sm: 200 } }}>
+        <Box sx={{ minWidth: { sm: 180 } }}>
+          <FormControl fullWidth>
+            <InputLabel id="preptime-select-label">Bereidingstijd</InputLabel>
+            <Select
+              labelId="preptime-select-label"
+              value={maxPrepTime}
+              label="Bereidingstijd"
+              onChange={(e) => setMaxPrepTime(e.target.value as number | 'all')}
+              sx={{ borderRadius: '16px' }}
+            >
+              <MenuItem value="all">Alle tijden ⏳</MenuItem>
+              <MenuItem value={15}>Snel (≤ 15 min)</MenuItem>
+              <MenuItem value={30}>Gemiddeld (≤ 30 min)</MenuItem>
+              <MenuItem value={45}>Uitgebreid (≤ 45 min)</MenuItem>
+              <MenuItem value={60}>Feestelijk (≤ 60 min)</MenuItem>
+            </Select>
+          </FormControl>
+        </Box>
+        <Box sx={{ minWidth: { sm: 180 } }}>
           <FormControl fullWidth>
             <InputLabel id="sort-select-label">Sorteer op</InputLabel>
             <Select
@@ -446,14 +566,25 @@ export default function DishList({ dishes, ratingsMap, members, activeProfile }:
                       </Typography>
                     </Box>
 
-                    {dish.cuisine && (
-                      <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', mt: 0.5 }}>
-                        <Tag size={12} className="text-secondary-light" />
-                        <Typography variant="caption" color="secondary.main" sx={{ fontWeight: 700 }}>
-                          {dish.cuisine}
-                        </Typography>
-                      </Box>
-                    )}
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center', mt: 0.5 }}>
+                      {dish.cuisine && (
+                        <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+                          <Tag size={12} className="text-secondary-light" />
+                          <Typography variant="caption" color="secondary.main" sx={{ fontWeight: 700 }}>
+                            {dish.cuisine}
+                          </Typography>
+                        </Box>
+                      )}
+                      
+                      {dish.prepTime !== undefined && dish.prepTime !== null && (
+                        <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+                          <Clock size={12} className="text-secondary-light" />
+                          <Typography variant="caption" color="secondary.main" sx={{ fontWeight: 700 }}>
+                            {dish.prepTime} min
+                          </Typography>
+                        </Box>
+                      )}
+                    </Box>
 
                     {dish.description && (
                       <Typography
@@ -545,13 +676,23 @@ export default function DishList({ dishes, ratingsMap, members, activeProfile }:
                 <Typography variant="h4" sx={{ fontWeight: 900, mb: 0.5, color: '#311300', fontSize: { xs: '1.4rem', sm: '1.75rem' } }}>
                   {selectedDish.name}
                 </Typography>
-                {selectedDish.cuisine && (
-                  <Chip
-                    label={selectedDish.cuisine}
-                    size="small"
-                    sx={{ fontWeight: 700, backgroundColor: 'rgba(143, 78, 0, 0.08)', color: '#8F4E00' }}
-                  />
-                )}
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 0.5 }}>
+                  {selectedDish.cuisine && (
+                    <Chip
+                      label={selectedDish.cuisine}
+                      size="small"
+                      sx={{ fontWeight: 700, backgroundColor: 'rgba(143, 78, 0, 0.08)', color: '#8F4E00' }}
+                    />
+                  )}
+                  {selectedDish.prepTime !== undefined && selectedDish.prepTime !== null && (
+                    <Chip
+                      icon={<Clock size={14} style={{ color: '#8F4E00' }} />}
+                      label={`${selectedDish.prepTime} min`}
+                      size="small"
+                      sx={{ fontWeight: 700, backgroundColor: 'rgba(143, 78, 0, 0.08)', color: '#8F4E00', '& .MuiChip-icon': { color: '#8F4E00' } }}
+                    />
+                  )}
+                </Box>
               </Box>
               <IconButton
                 onClick={() => handleStartEditDish(selectedDish)}
@@ -648,21 +789,52 @@ export default function DishList({ dishes, ratingsMap, members, activeProfile }:
 
                   {/* Ingredients section */}
                   <Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5, flexWrap: 'wrap', gap: 1 }}>
                       <Typography variant="h6" sx={{ fontWeight: 800, color: '#8F4E00', fontSize: '0.95rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                         Ingrediënten
                       </Typography>
                       {selectedDish.ingredients && selectedDish.ingredients.length > 0 && (
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          startIcon={<ShoppingCart size={14} />}
-                          onClick={() => handleAddAllIngredients(selectedDish.ingredients || [])}
-                          disabled={addingAllLoading || selectedDish.ingredients.every(ing => addedIngMap[ing.name])}
-                          sx={{ textTransform: 'none', fontWeight: 800, borderRadius: '8px' }}
-                        >
-                          {selectedDish.ingredients.every(ing => addedIngMap[ing.name]) ? 'Alles toegevoegd' : 'Alles toevoegen'}
-                        </Button>
+                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+                          <Button
+                            size="small"
+                            variant="text"
+                            onClick={() => {
+                              const nonAdded = selectedDish.ingredients?.filter(ing => !addedIngMap[ing.name]).map(ing => ing.name) || [];
+                              const currentNonAddedSelectedCount = selectedIngredients.filter(name => nonAdded.includes(name)).length;
+                              if (currentNonAddedSelectedCount === nonAdded.length) {
+                                // If all non-added are already selected, deselect them
+                                setSelectedIngredients(prev => prev.filter(name => !nonAdded.includes(name)));
+                              } else {
+                                // Otherwise select all non-added
+                                setSelectedIngredients(prev => {
+                                  const base = prev.filter(name => !nonAdded.includes(name));
+                                  return [...base, ...nonAdded];
+                                });
+                              }
+                            }}
+                            disabled={selectedDish.ingredients.every(ing => addedIngMap[ing.name])}
+                            sx={{ textTransform: 'none', fontWeight: 800, fontSize: '0.75rem', color: '#8F4E00', minWidth: 0, px: 1 }}
+                          >
+                            {selectedDish.ingredients.every(ing => addedIngMap[ing.name]) 
+                              ? '' 
+                              : (selectedIngredients.filter(name => !addedIngMap[name]).length === selectedDish.ingredients.filter(ing => !addedIngMap[ing.name]).length)
+                                ? 'Deselecteer alles'
+                                : 'Selecteer alles'}
+                          </Button>
+                          <Button
+                            size="small"
+                            variant="contained"
+                            color="primary"
+                            startIcon={<ShoppingCart size={14} />}
+                            onClick={handleAddSelectedIngredients}
+                            disabled={addingAllLoading || selectedIngredients.filter(name => !addedIngMap[name]).length === 0}
+                            sx={{ textTransform: 'none', fontWeight: 850, borderRadius: '12px', boxShadow: 'none', px: 2 }}
+                          >
+                            {selectedIngredients.filter(name => !addedIngMap[name]).length === 0 
+                              ? 'Alles toegevoegd' 
+                              : `Voeg geselecteerde toe (${selectedIngredients.filter(name => !addedIngMap[name]).length})`}
+                          </Button>
+                        </Box>
                       )}
                     </Box>
 
@@ -670,23 +842,58 @@ export default function DishList({ dishes, ratingsMap, members, activeProfile }:
                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                         {selectedDish.ingredients.map((ing, idx) => {
                           const isAlreadyAdded = !!addedIngMap[ing.name];
+                          const isChecked = selectedIngredients.includes(ing.name);
                           return (
                             <Box
                               key={idx}
+                              onClick={() => {
+                                if (!isAlreadyAdded) {
+                                  setSelectedIngredients(prev =>
+                                    prev.includes(ing.name)
+                                      ? prev.filter(name => name !== ing.name)
+                                      : [...prev, ing.name]
+                                  );
+                                }
+                              }}
                               sx={{
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'space-between',
-                                p: 1.5,
+                                p: 1.2,
                                 borderRadius: '12px',
                                 border: '1px solid #F0E0D6',
-                                backgroundColor: isAlreadyAdded ? '#F2FFF0' : '#ffffff',
-                                borderColor: isAlreadyAdded ? '#A6EAA2' : '#F0E0D6',
+                                backgroundColor: isAlreadyAdded 
+                                  ? '#F2FFF0' 
+                                  : isChecked 
+                                    ? 'rgba(143, 78, 0, 0.03)' 
+                                    : '#ffffff',
+                                borderColor: isAlreadyAdded 
+                                  ? '#A6EAA2' 
+                                  : isChecked 
+                                    ? '#8F4E00' 
+                                    : '#F0E0D6',
+                                cursor: isAlreadyAdded ? 'default' : 'pointer',
                                 transition: 'all 0.2s',
+                                '&:hover': {
+                                  borderColor: isAlreadyAdded ? '#A6EAA2' : '#8F4E00',
+                                  backgroundColor: isAlreadyAdded ? '#F2FFF0' : 'rgba(143, 78, 0, 0.05)'
+                                }
                               }}
                             >
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Typography variant="body2" sx={{ fontWeight: 800, color: '#311300' }}>
+                                <Checkbox
+                                  checked={isAlreadyAdded || isChecked}
+                                  disabled={isAlreadyAdded}
+                                  size="small"
+                                  sx={{
+                                    color: '#8F4E00',
+                                    p: 0.5,
+                                    '&.Mui-checked': {
+                                      color: isAlreadyAdded ? '#2E7D32' : '#8F4E00',
+                                    },
+                                  }}
+                                />
+                                <Typography variant="body2" sx={{ fontWeight: 800, color: '#311300', textDecoration: isAlreadyAdded ? 'line-through' : 'none', opacity: isAlreadyAdded ? 0.6 : 1 }}>
                                   {ing.name}
                                 </Typography>
                                 {ing.amount && (
@@ -699,10 +906,11 @@ export default function DishList({ dishes, ratingsMap, members, activeProfile }:
                                       fontWeight: 800,
                                       backgroundColor: 'rgba(143, 78, 0, 0.08)',
                                       color: '#8F4E00',
+                                      opacity: isAlreadyAdded ? 0.6 : 1
                                     }}
                                   />
                                 )}
-                                <span style={{ fontSize: '0.72rem', color: '#8F4E00', opacity: 0.8, marginLeft: '4px' }}>
+                                <span style={{ fontSize: '0.72rem', color: '#8F4E00', opacity: isAlreadyAdded ? 0.4 : 0.8, marginLeft: '4px' }}>
                                   ({ing.category})
                                 </span>
                               </Box>
@@ -710,7 +918,10 @@ export default function DishList({ dishes, ratingsMap, members, activeProfile }:
                               <Button
                                 size="small"
                                 variant="text"
-                                onClick={() => handleAddSingleIngredientItem(ing)}
+                                onClick={(e) => {
+                                  e.stopPropagation(); // Prevent toggling the checkbox
+                                  handleAddSingleIngredientItem(ing);
+                                }}
                                 disabled={isAlreadyAdded}
                                 startIcon={isAlreadyAdded ? <Check size={14} /> : <Plus size={14} />}
                                 sx={{
@@ -1049,6 +1260,31 @@ export default function DishList({ dishes, ratingsMap, members, activeProfile }:
 
               <TextField
                 fullWidth
+                label="Bereidingstijd (in minuten)"
+                type="number"
+                value={editPrepTime}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === '') {
+                    setEditPrepTime('');
+                  } else {
+                    const parsed = parseInt(val, 10);
+                    if (!isNaN(parsed) && parsed >= 0) {
+                      setEditPrepTime(parsed);
+                    }
+                  }
+                }}
+                placeholder="Bijv. 20, 45, 60..."
+                slotProps={{
+                  input: {
+                    startAdornment: <Clock size={18} className="text-gray-400 mr-2" />,
+                    endAdornment: <span className="text-gray-400 text-sm ml-1">minuten</span>,
+                  }
+                }}
+              />
+
+              <TextField
+                fullWidth
                 multiline
                 rows={3}
                 label="Beschrijving (over het gerecht)"
@@ -1097,8 +1333,19 @@ export default function DishList({ dishes, ratingsMap, members, activeProfile }:
                   </Button>
 
                   {editImageUrl && (
-                    <Box sx={{ width: '100%', height: 130, borderRadius: '12px', overflow: 'hidden', border: '1px solid #F0E0D6' }}>
-                      <img src={editImageUrl} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      <Box sx={{ width: '100%', height: 130, borderRadius: '12px', overflow: 'hidden', border: '1px solid #F0E0D6' }}>
+                        <img src={editImageUrl} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} referrerPolicy="no-referrer" />
+                      </Box>
+                      <Button
+                        size="small"
+                        color="error"
+                        variant="text"
+                        onClick={() => setEditImageUrl('')}
+                        sx={{ fontWeight: 800, textTransform: 'none', alignSelf: 'flex-start' }}
+                      >
+                        Afbeelding verwijderen
+                      </Button>
                     </Box>
                   )}
                 </Box>
@@ -1220,49 +1467,89 @@ export default function DishList({ dishes, ratingsMap, members, activeProfile }:
                     </FormControl>
                   </Box>
 
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    startIcon={<Plus size={14} />}
-                    onClick={handleAddEditIngredient}
-                    sx={{ textTransform: 'none', fontWeight: 800, borderRadius: '8px' }}
-                  >
-                    Ingrediënt toevoegen
-                  </Button>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button
+                      variant={editingEditIngredientIndex !== null ? "contained" : "outlined"}
+                      size="small"
+                      startIcon={editingEditIngredientIndex !== null ? <Check size={14} /> : <Plus size={14} />}
+                      onClick={handleAddEditIngredient}
+                      sx={{ 
+                        flexGrow: 1,
+                        textTransform: 'none', 
+                        fontWeight: 800, 
+                        borderRadius: '8px',
+                        backgroundColor: editingEditIngredientIndex !== null ? '#8F4E00' : undefined,
+                        color: editingEditIngredientIndex !== null ? '#ffffff' : undefined,
+                        '&:hover': {
+                          backgroundColor: editingEditIngredientIndex !== null ? '#703D00' : undefined,
+                        }
+                      }}
+                    >
+                      {editingEditIngredientIndex !== null ? 'Ingrediënt opslaan' : 'Ingrediënt toevoegen'}
+                    </Button>
+                    {editingEditIngredientIndex !== null && (
+                      <Button
+                        variant="outlined"
+                        color="secondary"
+                        size="small"
+                        startIcon={<X size={14} />}
+                        onClick={handleCancelEditEditIngredient}
+                        sx={{ textTransform: 'none', fontWeight: 800, borderRadius: '8px' }}
+                      >
+                        Annuleren
+                      </Button>
+                    )}
+                  </Box>
                 </Box>
 
                 {/* Ingredients array outputs */}
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, maxHeight: 220, overflowY: 'auto' }}>
-                  {editIngredients.map((ing, idx) => (
-                    <Box
-                      key={idx}
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        p: 1.2,
-                        borderRadius: '10px',
-                        border: '1px solid #F0E0D6',
-                        backgroundColor: '#ffffff'
-                      }}
-                    >
-                      <Box sx={{ minWidth: 0, flexGrow: 1 }}>
-                        <Typography variant="body2" sx={{ fontWeight: 700, color: '#311300' }}>
-                          {ing.name}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {ing.amount || 'Naar smaak'} • {ing.category}
-                        </Typography>
-                      </Box>
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={() => handleRemoveEditIngredient(idx)}
+                  {editIngredients.map((ing, idx) => {
+                    const isEditingThisInList = editingEditIngredientIndex === idx;
+                    return (
+                      <Box
+                        key={idx}
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          p: 1.2,
+                          borderRadius: '10px',
+                          border: isEditingThisInList ? '2px solid #8F4E00' : '1px solid #F0E0D6',
+                          backgroundColor: isEditingThisInList ? 'rgba(143, 78, 0, 0.03)' : '#ffffff',
+                          boxShadow: isEditingThisInList ? '0 2px 8px rgba(143, 78, 0, 0.1)' : 'none',
+                          transition: 'all 0.15s ease'
+                        }}
                       >
-                        <Trash2 size={14} />
-                      </IconButton>
-                    </Box>
-                  ))}
+                        <Box sx={{ minWidth: 0, flexGrow: 1, cursor: 'pointer' }} onClick={() => handleStartEditEditIngredient(idx)}>
+                          <Typography variant="body2" sx={{ fontWeight: 700, color: '#311300' }}>
+                            {ing.name}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {ing.amount || 'Naar smaak'} • {ing.category}
+                          </Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleStartEditEditIngredient(idx)}
+                            sx={{ color: '#8F4E00' }}
+                            title="Bewerken"
+                          >
+                            <Pencil size={14} />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => handleRemoveEditIngredient(idx)}
+                            title="Verwijderen"
+                          >
+                            <Trash2 size={14} />
+                          </IconButton>
+                        </Box>
+                      </Box>
+                    );
+                  })}
                   {editIngredients.length === 0 && (
                     <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic', pl: 1 }}>
                       Nog geen ingrediënten geconfigureerd.

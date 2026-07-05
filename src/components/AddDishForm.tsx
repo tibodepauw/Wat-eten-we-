@@ -20,7 +20,7 @@ import {
   FormControl,
   IconButton
 } from '@mui/material';
-import { Plus, Tag, Link as LinkIcon, FileText, ChefHat, Trash2, ShoppingBag } from 'lucide-react';
+import { Plus, Tag, Link as LinkIcon, FileText, ChefHat, Trash2, ShoppingBag, Clock, Pencil, X } from 'lucide-react';
 import { MealDatabase } from '../lib/db';
 import { Ingredient } from '../types';
 
@@ -61,12 +61,14 @@ export default function AddDishForm({ activeProfile, onSuccess }: AddDishFormPro
   const [tags, setTags] = useState<string[]>([]);
   const [newTagInput, setNewTagInput] = useState('');
   const [suitableMoments, setSuitableMoments] = useState<string[]>(['Warm eten']);
+  const [prepTime, setPrepTime] = useState<number | ''>('');
   
   // Ingredients management
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [newIngName, setNewIngName] = useState('');
   const [newIngAmount, setNewIngAmount] = useState('');
   const [newIngCategory, setNewIngCategory] = useState('Groenten & Fruit');
+  const [editingIngredientIndex, setEditingIngredientIndex] = useState<number | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [errorText, setErrorText] = useState('');
@@ -77,27 +79,63 @@ export default function AddDishForm({ activeProfile, onSuccess }: AddDishFormPro
     if (!trimmed) return;
     
     // Prevent duplicate ingredient names
-    if (ingredients.some(ing => ing.name.toLowerCase() === trimmed.toLowerCase())) {
+    const isDuplicate = ingredients.some((ing, idx) => 
+      idx !== editingIngredientIndex && ing.name.toLowerCase() === trimmed.toLowerCase()
+    );
+    if (isDuplicate) {
       setErrorText('Dit ingrediënt staat al in de lijst!');
       return;
     }
 
-    setIngredients([
-      ...ingredients,
-      {
+    if (editingIngredientIndex !== null) {
+      const updated = [...ingredients];
+      updated[editingIngredientIndex] = {
         name: trimmed,
         amount: newIngAmount.trim() || undefined,
         category: newIngCategory
-      }
-    ]);
+      };
+      setIngredients(updated);
+      setEditingIngredientIndex(null);
+    } else {
+      setIngredients([
+        ...ingredients,
+        {
+          name: trimmed,
+          amount: newIngAmount.trim() || undefined,
+          category: newIngCategory
+        }
+      ]);
+    }
     
     setNewIngName('');
     setNewIngAmount('');
     setErrorText('');
   };
 
+  const handleStartEditIngredient = (index: number) => {
+    const ing = ingredients[index];
+    setNewIngName(ing.name);
+    setNewIngAmount(ing.amount || '');
+    setNewIngCategory(ing.category || 'Groenten & Fruit');
+    setEditingIngredientIndex(index);
+    setErrorText('');
+  };
+
+  const handleCancelEditIngredient = () => {
+    setNewIngName('');
+    setNewIngAmount('');
+    setNewIngCategory('Groenten & Fruit');
+    setEditingIngredientIndex(null);
+    setErrorText('');
+  };
+
   const handleRemoveIngredient = (index: number) => {
     setIngredients(ingredients.filter((_, i) => i !== index));
+    if (editingIngredientIndex === index) {
+      handleCancelEditIngredient();
+    } else if (editingIngredientIndex !== null && editingIngredientIndex > index) {
+      setEditingIngredientIndex(editingIngredientIndex - 1);
+    }
   };
 
   const handleToggleMoment = (moment: string) => {
@@ -168,6 +206,7 @@ export default function AddDishForm({ activeProfile, onSuccess }: AddDishFormPro
         description: description.trim() || undefined,
         cuisine: cuisine.trim() || undefined,
         imageUrl: imageUrl.trim() || undefined,
+        prepTime: prepTime !== '' ? Number(prepTime) : undefined,
         recipe: recipe.trim() || undefined,
         tags: tags.length > 0 ? tags : undefined,
         suitableMoments: suitableMoments,
@@ -188,6 +227,7 @@ export default function AddDishForm({ activeProfile, onSuccess }: AddDishFormPro
         setDescription('');
         setCuisine('');
         setImageUrl('');
+        setPrepTime('');
         setRecipe('');
         setTags([]);
         setIngredients([]);
@@ -280,6 +320,35 @@ export default function AddDishForm({ activeProfile, onSuccess }: AddDishFormPro
                   }
                 }}
                 placeholder="Bijv. Tapas, Barbecue, Snel..."
+              />
+            </Box>
+
+            {/* Bereidingstijd */}
+            <Box>
+              <TextField
+                fullWidth
+                label="Bereidingstijd (in minuten)"
+                variant="outlined"
+                type="number"
+                value={prepTime}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === '') {
+                    setPrepTime('');
+                  } else {
+                    const parsed = parseInt(val, 10);
+                    if (!isNaN(parsed) && parsed >= 0) {
+                      setPrepTime(parsed);
+                    }
+                  }
+                }}
+                placeholder="Bijv. 20, 30, 45..."
+                slotProps={{
+                  input: {
+                    startAdornment: <Clock size={18} className="text-gray-400 mr-2" />,
+                    endAdornment: <span className="text-gray-400 text-sm ml-1">minuten</span>,
+                  }
+                }}
               />
             </Box>
 
@@ -426,18 +495,42 @@ export default function AddDishForm({ activeProfile, onSuccess }: AddDishFormPro
                     ))}
                   </Select>
                 </FormControl>
-                <Button
-                  variant="contained"
-                  onClick={handleAddIngredient}
-                  sx={{
-                    height: 40,
-                    borderRadius: '12px',
-                    textTransform: 'none',
-                    fontWeight: 800,
-                  }}
-                >
-                  Voeg toe
-                </Button>
+                
+                <Box sx={{ display: 'flex', gap: 1, width: '100%' }}>
+                  <Button
+                    variant="contained"
+                    onClick={handleAddIngredient}
+                    sx={{
+                      height: 40,
+                      borderRadius: '12px',
+                      textTransform: 'none',
+                      fontWeight: 800,
+                      flex: 1,
+                      backgroundColor: editingIngredientIndex !== null ? '#8F4E00' : undefined,
+                      '&:hover': {
+                        backgroundColor: editingIngredientIndex !== null ? '#703D00' : undefined,
+                      }
+                    }}
+                  >
+                    {editingIngredientIndex !== null ? 'Opslaan' : 'Voeg toe'}
+                  </Button>
+                  {editingIngredientIndex !== null && (
+                    <IconButton
+                      color="secondary"
+                      onClick={handleCancelEditIngredient}
+                      sx={{
+                        height: 40,
+                        width: 40,
+                        borderRadius: '12px',
+                        border: '1px solid currentColor',
+                        p: 0
+                      }}
+                      title="Annuleren"
+                    >
+                      <X size={18} />
+                    </IconButton>
+                  )}
+                </Box>
               </Box>
 
               {/* Added ingredients list */}
@@ -445,6 +538,7 @@ export default function AddDishForm({ activeProfile, onSuccess }: AddDishFormPro
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                   {ingredients.map((ing, idx) => {
                     const catLabel = SH_CATEGORIES.find(c => c.value === ing.category)?.label || ing.category;
+                    const isEditingThis = editingIngredientIndex === idx;
                     return (
                       <Box
                         key={idx}
@@ -455,11 +549,13 @@ export default function AddDishForm({ activeProfile, onSuccess }: AddDishFormPro
                           px: 2,
                           py: 1,
                           borderRadius: '12px',
-                          backgroundColor: '#ffffff',
-                          border: '1px solid #F0E0D6',
+                          backgroundColor: isEditingThis ? 'rgba(143, 78, 0, 0.03)' : '#ffffff',
+                          border: isEditingThis ? '2px solid #8F4E00' : '1px solid #F0E0D6',
+                          boxShadow: isEditingThis ? '0 2px 8px rgba(143, 78, 0, 0.1)' : 'none',
+                          transition: 'all 0.15s ease'
                         }}
                       >
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, cursor: 'pointer', flexGrow: 1 }} onClick={() => handleStartEditIngredient(idx)}>
                           <Typography variant="body2" sx={{ fontWeight: 800, color: '#311300' }}>
                             {ing.name}
                           </Typography>
@@ -477,23 +573,34 @@ export default function AddDishForm({ activeProfile, onSuccess }: AddDishFormPro
                             />
                           )}
                           <Chip
-                            label={catLabel}
-                            size="small"
-                            variant="outlined"
-                            sx={{
-                              height: 20,
-                              fontSize: '0.72rem',
-                              borderColor: '#F0E0D6'
-                            }}
-                          />
+                              label={catLabel}
+                              size="small"
+                              variant="outlined"
+                              sx={{
+                                height: 20,
+                                fontSize: '0.72rem',
+                                borderColor: '#F0E0D6'
+                              }}
+                            />
                         </Box>
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={() => handleRemoveIngredient(idx)}
-                        >
-                          <Trash2 size={16} />
-                        </IconButton>
+                        <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleStartEditIngredient(idx)}
+                            sx={{ color: '#8F4E00' }}
+                            title="Bewerken"
+                          >
+                            <Pencil size={15} />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => handleRemoveIngredient(idx)}
+                            title="Verwijderen"
+                          >
+                            <Trash2 size={15} />
+                          </IconButton>
+                        </Box>
                       </Box>
                     );
                   })}

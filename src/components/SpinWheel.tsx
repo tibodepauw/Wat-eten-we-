@@ -20,7 +20,7 @@ import {
   Select,
   MenuItem
 } from '@mui/material';
-import { Volume2, VolumeX, ChefHat, Calendar, Sparkles } from 'lucide-react';
+import { Volume2, VolumeX, ChefHat, Calendar, Sparkles, Clock } from 'lucide-react';
 import { Dish, Rating, PlannedMeal } from '../types';
 
 interface SpinWheelProps {
@@ -95,6 +95,7 @@ export default function SpinWheel({ dishes, ratingsMap, plannedMeals, onCelebrat
   const [winner, setWinner] = useState<Dish | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [selectedMoment, setSelectedMoment] = useState<string>('Warm eten');
+  const [maxPrepTime, setMaxPrepTime] = useState<number | 'all'>('all');
 
   // Date selection states
   const [selectedDate, setSelectedDate] = useState<string>(() => {
@@ -159,13 +160,22 @@ export default function SpinWheel({ dishes, ratingsMap, plannedMeals, onCelebrat
     return moments.includes(momentFilter);
   };
 
+  const isDishMatchingPrepTime = (dish: Dish, maxPrep: number | 'all'): boolean => {
+    if (maxPrep === 'all') return true;
+    const pTime = dish.prepTime;
+    if (pTime === undefined || pTime === null) return false;
+    return pTime <= maxPrep;
+  };
+
   const activeDishesForWheel = dishes
     .filter(d => isDishEligible(d.id, selectedDate))
-    .filter(d => isDishMatchingMoment(d, selectedMoment));
+    .filter(d => isDishMatchingMoment(d, selectedMoment))
+    .filter(d => isDishMatchingPrepTime(d, maxPrepTime));
 
   const lockedDishes = dishes
     .filter(d => !isDishEligible(d.id, selectedDate))
-    .filter(d => isDishMatchingMoment(d, selectedMoment));
+    .filter(d => isDishMatchingMoment(d, selectedMoment))
+    .filter(d => isDishMatchingPrepTime(d, maxPrepTime));
 
   // Resize handler using standard ResizeObserver as mandated in guidelines
   useEffect(() => {
@@ -270,7 +280,7 @@ export default function SpinWheel({ dishes, ratingsMap, plannedMeals, onCelebrat
   // Redraw the wheel canvas whenever dimensions or selection variables change
   useEffect(() => {
     drawWheel();
-  }, [dimensions, dishes, ratingsMap, selectedDate, plannedMeals]);
+  }, [dimensions, dishes, ratingsMap, selectedDate, plannedMeals, selectedMoment, maxPrepTime]);
 
   const drawWheel = () => {
     const canvas = canvasRef.current;
@@ -669,6 +679,58 @@ export default function SpinWheel({ dishes, ratingsMap, plannedMeals, onCelebrat
                 onClick={() => {
                   if (!isSpinning) {
                     setSelectedMoment(moment.value);
+                  }
+                }}
+                disabled={isSpinning}
+                variant={isSelected ? 'filled' : 'outlined'}
+                sx={{
+                  fontWeight: 750,
+                  fontSize: '0.8rem',
+                  borderRadius: '12px',
+                  px: 0.5,
+                  py: 1.8,
+                  transition: 'all 0.15s ease',
+                  border: isSelected ? '1px solid #8F4E00' : '1px solid #F0E0D6',
+                  backgroundColor: isSelected ? '#8F4E00' : 'transparent',
+                  color: isSelected ? '#ffffff' : '#8F4E00',
+                  '&:hover': {
+                    backgroundColor: isSelected ? '#703D00' : 'rgba(143, 78, 0, 0.06)',
+                    borderColor: '#8F4E00',
+                    transform: 'scale(1.03)'
+                  },
+                  '&.Mui-disabled': {
+                    opacity: 0.6,
+                    color: isSelected ? '#ffffff' : '#8F4E00',
+                    backgroundColor: isSelected ? '#8F4E00' : 'transparent'
+                  }
+                }}
+              />
+            );
+          })}
+        </Box>
+      </Box>
+
+      {/* Maximale Bereidingstijd Selector */}
+      <Box sx={{ width: '100%', px: 2, backgroundColor: '#ffffff', border: '1px solid #F0E0D6', py: 2, borderRadius: '16px' }}>
+        <Typography variant="body2" sx={{ fontWeight: 800, color: '#8F4E00', mb: 1.5, display: 'flex', alignItems: 'center', gap: 1, textTransform: 'uppercase', letterSpacing: '0.04em', fontSize: '0.75rem' }}>
+          <Clock size={16} /> Maximale bereidingstijd
+        </Typography>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+          {[
+            { value: 'all', label: 'Alle tijden ⏳' },
+            { value: 15, label: 'Snel (≤ 15 min)' },
+            { value: 30, label: 'Gemiddeld (≤ 30 min)' },
+            { value: 45, label: 'Uitgebreid (≤ 45 min)' },
+            { value: 60, label: 'Feestelijk (≤ 60 min)' }
+          ].map((item) => {
+            const isSelected = maxPrepTime === item.value;
+            return (
+              <Chip
+                key={String(item.value)}
+                label={item.label}
+                onClick={() => {
+                  if (!isSpinning) {
+                    setMaxPrepTime(item.value as number | 'all');
                   }
                 }}
                 disabled={isSpinning}
