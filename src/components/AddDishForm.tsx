@@ -18,11 +18,13 @@ import {
   Select,
   InputLabel,
   FormControl,
-  IconButton
+  IconButton,
+  CircularProgress
 } from '@mui/material';
-import { Plus, Tag, Link as LinkIcon, FileText, ChefHat, Trash2, ShoppingBag, Clock, Pencil, X } from 'lucide-react';
+import { Plus, Tag, Link as LinkIcon, FileText, ChefHat, Trash2, ShoppingBag, Clock, Pencil, X, Image as ImageIcon } from 'lucide-react';
 import { MealDatabase } from '../lib/db';
 import { Ingredient } from '../types';
+import { compressImage, DISH_IMAGE_PRESETS } from '../lib/imageUtils';
 
 interface AddDishFormProps {
   activeProfile: string;
@@ -71,6 +73,7 @@ export default function AddDishForm({ activeProfile, onSuccess }: AddDishFormPro
   const [editingIngredientIndex, setEditingIngredientIndex] = useState<number | null>(null);
 
   const [loading, setLoading] = useState(false);
+  const [compressing, setCompressing] = useState(false);
   const [errorText, setErrorText] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
 
@@ -152,20 +155,21 @@ export default function AddDishForm({ activeProfile, onSuccess }: AddDishFormPro
     setCuisine(preset);
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 1200000) {
-      setErrorText('De geselecteerde afbeelding is groter dan 1MB. Selecteer een kleiner bestand!');
-      return;
+    setCompressing(true);
+    setErrorText('');
+    try {
+      const compressedDataUrl = await compressImage(file, 1024, 0.75);
+      setImageUrl(compressedDataUrl);
+    } catch (err: any) {
+      console.error(err);
+      setErrorText('Er is een fout opgetreden bij het verwerken van de afbeelding.');
+    } finally {
+      setCompressing(false);
     }
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setImageUrl(reader.result as string);
-    };
-    reader.readAsDataURL(file);
   };
 
   const handleAddTag = () => {
@@ -654,42 +658,51 @@ export default function AddDishForm({ activeProfile, onSuccess }: AddDishFormPro
               />
             </Box>
 
-            {/* File Upload óf Link */}
+            {/* File Upload, Link óf Preset */}
             <Box>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5, color: 'text.secondary' }}>
-                Afbeelding uploaden of link plakken
+              <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1, color: '#8F4E00', display: 'flex', alignItems: 'center', gap: 1 }}>
+                <ImageIcon size={16} /> Foto van het gerecht
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Kies een foto om het gerecht extra smakelijk te presenteren! Upload een eigen foto (wordt automatisch geoptimaliseerd) of kies een prachtige foto uit de bibliotheek.
               </Typography>
               
-              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2.5, mb: 3.5 }}>
                 {/* Drag and Drop manual upload card slot */}
                 <Box
                   onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => {
+                  onDrop={async (e) => {
                     e.preventDefault();
                     const file = e.dataTransfer.files?.[0];
                     if (file) {
-                      if (file.size > 1200000) {
-                        setErrorText('Foto is te groot! Selecteer een bestand kleiner dan 1MB.');
-                        return;
+                      setCompressing(true);
+                      setErrorText('');
+                      try {
+                        const compressedDataUrl = await compressImage(file, 1024, 0.75);
+                        setImageUrl(compressedDataUrl);
+                      } catch (err) {
+                        console.error(err);
+                        setErrorText('Fout bij het verwerken van de afbeelding.');
+                      } finally {
+                        setCompressing(false);
                       }
-                      const reader = new FileReader();
-                      reader.onloadend = () => setImageUrl(reader.result as string);
-                      reader.readAsDataURL(file);
                     }
                   }}
                   sx={{
                     border: '2px dashed #F0E0D6',
                     borderRadius: '16px',
-                    p: 2.5,
+                    p: 3,
                     textAlign: 'center',
-                    cursor: 'pointer',
+                    cursor: compressing ? 'not-allowed' : 'pointer',
                     backgroundColor: imageUrl.startsWith('data:image/') ? 'rgba(143, 78, 0, 0.03)' : 'transparent',
                     '&:hover': { borderColor: '#8F4E00', backgroundColor: 'rgba(143, 78, 0, 0.02)' },
                     transition: 'all 0.2s',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
-                    justifyContent: 'center'
+                    justifyContent: 'center',
+                    minHeight: 120,
+                    position: 'relative'
                   }}
                   component="label"
                 >
@@ -697,21 +710,33 @@ export default function AddDishForm({ activeProfile, onSuccess }: AddDishFormPro
                     type="file"
                     accept="image/*"
                     hidden
+                    disabled={compressing}
                     onChange={handleImageUpload}
                   />
-                  <Typography variant="caption" sx={{ fontWeight: 800, color: '#8F4E00', display: 'block', mb: 0.5 }}>
-                    {imageUrl.startsWith('data:image/') ? '✓ Foto geselecteerd' : 'Kies bestand of sleep hierheen'}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Max. 1MB (PNG, JPG, WEBP)
-                  </Typography>
+                  {compressing ? (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                      <CircularProgress size={24} sx={{ color: '#8F4E00' }} />
+                      <Typography variant="caption" sx={{ fontWeight: 700, color: '#8F4E00' }}>
+                        Afbeelding optimaliseren...
+                      </Typography>
+                    </Box>
+                  ) : (
+                    <>
+                      <Typography variant="body2" sx={{ fontWeight: 800, color: '#8F4E00', display: 'block', mb: 0.5 }}>
+                        {imageUrl.startsWith('data:image/') ? '✓ Eigen foto geselecteerd' : 'Upload eigen foto'}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Kies bestand, sleep hierheen of maak een foto. Elk formaat is toegestaan!
+                      </Typography>
+                    </>
+                  )}
                 </Box>
 
                 {/* Direct image link paste zone */}
-                <Box>
+                <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                   <TextField
                     fullWidth
-                    label="Of plak een directe URL link"
+                    label="Of plak een directe afbeeldings-URL"
                     variant="outlined"
                     value={imageUrl.startsWith('data:image/') ? '' : imageUrl}
                     onChange={(e) => setImageUrl(e.target.value)}
@@ -722,26 +747,145 @@ export default function AddDishForm({ activeProfile, onSuccess }: AddDishFormPro
                       }
                     }}
                   />
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, pl: 0.5 }}>
+                    Handig als je een link hebt van bijvoorbeeld Google of een receptenwebsite.
+                  </Typography>
+                </Box>
+              </Box>
+
+              {/* Preset Gallery Selector */}
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1.5, color: '#311300', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Snelle fotobibliotheek
+                </Typography>
+                <Box 
+                  sx={{ 
+                    display: 'flex', 
+                    gap: 1.5, 
+                    overflowX: 'auto', 
+                    pb: 1.5,
+                    px: 0.5,
+                    '&::-webkit-scrollbar': { height: '6px' },
+                    '&::-webkit-scrollbar-track': { backgroundColor: '#f1f1f1', borderRadius: '10px' },
+                    '&::-webkit-scrollbar-thumb': { backgroundColor: '#c1c1c1', borderRadius: '10px' }
+                  }}
+                >
+                  {DISH_IMAGE_PRESETS.map((preset, idx) => {
+                    const isSelected = imageUrl === preset.url;
+                    return (
+                      <Box
+                        key={idx}
+                        onClick={() => {
+                          setImageUrl(preset.url);
+                          if (!cuisine) {
+                            setCuisine(preset.category);
+                          }
+                        }}
+                        sx={{
+                          flex: '0 0 auto',
+                          width: 90,
+                          textAlign: 'center',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s',
+                          '&:hover': { transform: 'translateY(-2px)' }
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            width: 70,
+                            height: 70,
+                            borderRadius: '16px',
+                            overflow: 'hidden',
+                            margin: '0 auto 6px',
+                            border: isSelected ? '3px solid #8F4E00' : '1px solid #F0E0D6',
+                            boxShadow: isSelected ? '0 0 0 2px rgba(143, 78, 0, 0.2)' : 'none',
+                            position: 'relative'
+                          }}
+                        >
+                          <img
+                            src={preset.url}
+                            alt={preset.label}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            referrerPolicy="no-referrer"
+                          />
+                          {isSelected && (
+                            <Box
+                              sx={{
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                bottom: 0,
+                                backgroundColor: 'rgba(143, 78, 0, 0.25)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}
+                            >
+                              <Box sx={{ backgroundColor: '#8F4E00', color: '#ffffff', borderRadius: '50%', p: 0.2, display: 'flex' }}>
+                                <Plus size={12} style={{ transform: 'rotate(45deg)', color: '#ffffff' }} />
+                              </Box>
+                            </Box>
+                          )}
+                        </Box>
+                        <Typography variant="caption" sx={{ fontWeight: isSelected ? 800 : 650, color: isSelected ? '#8F4E00' : '#5c5c5c', fontSize: '0.72rem', display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                          {preset.label}
+                        </Typography>
+                      </Box>
+                    );
+                  })}
                 </Box>
               </Box>
 
               {imageUrl && (
-                <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Box 
+                  sx={{ 
+                    mt: 2, 
+                    mb: 1,
+                    p: 2, 
+                    borderRadius: '16px', 
+                    border: '1px solid #F0E0D6', 
+                    backgroundColor: '#FAF7F5',
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: 2.5 
+                  }}
+                >
                   <img
                     src={imageUrl}
-                    alt="Preview"
-                    style={{ width: 80, height: 60, objectFit: 'cover', borderRadius: 8, border: '1px solid #F0E0D6' }}
+                    alt="Geselecteerde preview"
+                    style={{ width: 110, height: 80, objectFit: 'cover', borderRadius: 12, border: '1px solid #F0E0D6' }}
                     referrerPolicy="no-referrer"
                   />
-                  <Button
-                    size="small"
-                    color="error"
-                    variant="text"
-                    onClick={() => setImageUrl('')}
-                    sx={{ fontWeight: 700, textTransform: 'none' }}
-                  >
-                    Afbeelding verwijderen
-                  </Button>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, flexGrow: 1 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 800, color: '#311300' }}>
+                      Geselecteerde afbeelding
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {imageUrl.startsWith('data:image/') ? 'Geüpload vanaf apparaat (lokaal gecomprimeerd)' : 'Geselecteerd uit de bibliotheek / externe URL'}
+                    </Typography>
+                    <Button
+                      size="small"
+                      color="error"
+                      variant="outlined"
+                      onClick={() => setImageUrl('')}
+                      sx={{ 
+                        fontWeight: 800, 
+                        textTransform: 'none', 
+                        mt: 1, 
+                        alignSelf: 'flex-start',
+                        borderRadius: '8px',
+                        borderColor: '#FFDCC0',
+                        color: '#d32f2f',
+                        '&:hover': {
+                          backgroundColor: '#ffebee',
+                          borderColor: '#d32f2f'
+                        }
+                      }}
+                    >
+                      Afbeelding verwijderen
+                    </Button>
+                  </Box>
                 </Box>
               )}
             </Box>

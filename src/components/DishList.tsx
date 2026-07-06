@@ -26,12 +26,14 @@ import {
   Button,
   IconButton,
   Alert,
-  Checkbox
+  Checkbox,
+  CircularProgress
 } from '@mui/material';
-import { Search, Calendar, User, Tag, Star, Trash2, X, Plus, Check, ShoppingBag, ShoppingCart, Pencil, Clock } from 'lucide-react';
+import { Search, Calendar, User, Tag, Star, Trash2, X, Plus, Check, ShoppingBag, ShoppingCart, Pencil, Clock, Image as ImageIcon } from 'lucide-react';
 import { Dish, Rating as RatingType, Member, Ingredient } from '../types';
 import { MealDatabase } from '../lib/db';
 import { getAvatarColor, avatarIconsMap } from './ProfilePicker';
+import { compressImage, DISH_IMAGE_PRESETS } from '../lib/imageUtils';
 
 interface DishListProps {
   dishes: Dish[];
@@ -95,6 +97,7 @@ export default function DishList({ dishes, ratingsMap, members, activeProfile }:
   const [editError, setEditError] = useState('');
   const [editSuccess, setEditSuccess] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
+  const [editCompressing, setEditCompressing] = useState(false);
   const [editingEditIngredientIndex, setEditingEditIngredientIndex] = useState<number | null>(null);
 
   // Edit Dish supporting handlers
@@ -209,20 +212,21 @@ export default function DishList({ dishes, ratingsMap, members, activeProfile }:
     setEditTags(editTags.filter(t => t !== tag));
   };
 
-  const handleEditImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleEditImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 1200000) {
-      setEditError('De geselecteerde afbeelding is groter dan 1MB. Selecteer een kleiner bestand!');
-      return;
+    setEditCompressing(true);
+    setEditError('');
+    try {
+      const compressedDataUrl = await compressImage(file, 1024, 0.75);
+      setEditImageUrl(compressedDataUrl);
+    } catch (err: any) {
+      console.error(err);
+      setEditError('Er is een fout opgetreden bij het verwerken van de afbeelding.');
+    } finally {
+      setEditCompressing(false);
     }
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setEditImageUrl(reader.result as string);
-    };
-    reader.readAsDataURL(file);
   };
 
   const handleSaveEditDish = async () => {
@@ -1305,47 +1309,202 @@ export default function DishList({ dishes, ratingsMap, members, activeProfile }:
 
               {/* Cover image upload / link */}
               <Box>
-                <Typography variant="body2" sx={{ fontWeight: 800, mb: 1, color: '#8F4E00' }}>
-                  Foto van het gerecht
+                <Typography variant="body2" sx={{ fontWeight: 800, mb: 1, color: '#8F4E00', display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <ImageIcon size={16} /> Foto van het gerecht
                 </Typography>
+                
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="Afbeeldings-URL (of upload hieronder)"
-                    value={editImageUrl}
-                    onChange={(e) => setEditImageUrl(e.target.value)}
-                    placeholder="https://images.unsplash.com/..."
-                  />
-                  
-                  <Button
-                    variant="outlined"
-                    component="label"
-                    sx={{ textTransform: 'none', fontWeight: 800, borderRadius: '8px' }}
-                  >
-                    Upload afbeelding (.png, .jpg)
-                    <input
-                      type="file"
-                      hidden
-                      accept="image/*"
-                      onChange={handleEditImageUpload}
-                    />
-                  </Button>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+                    {/* Drag and Drop manual upload card slot */}
+                    <Box
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={async (e) => {
+                        e.preventDefault();
+                        const file = e.dataTransfer.files?.[0];
+                        if (file) {
+                          setEditCompressing(true);
+                          setEditError('');
+                          try {
+                            const compressedDataUrl = await compressImage(file, 1024, 0.75);
+                            setEditImageUrl(compressedDataUrl);
+                          } catch (err) {
+                            console.error(err);
+                            setEditError('Fout bij het verwerken van de afbeelding.');
+                          } finally {
+                            setEditCompressing(false);
+                          }
+                        }
+                      }}
+                      sx={{
+                        border: '2px dashed #F0E0D6',
+                        borderRadius: '12px',
+                        p: 2,
+                        textAlign: 'center',
+                        cursor: editCompressing ? 'not-allowed' : 'pointer',
+                        backgroundColor: editImageUrl.startsWith('data:image/') ? 'rgba(143, 78, 0, 0.03)' : 'transparent',
+                        '&:hover': { borderColor: '#8F4E00', backgroundColor: 'rgba(143, 78, 0, 0.02)' },
+                        transition: 'all 0.2s',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        minHeight: 110,
+                        position: 'relative'
+                      }}
+                      component="label"
+                    >
+                      <input
+                        type="file"
+                        accept="image/*"
+                        hidden
+                        disabled={editCompressing}
+                        onChange={handleEditImageUpload}
+                      />
+                      {editCompressing ? (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+                          <CircularProgress size={20} sx={{ color: '#8F4E00' }} />
+                          <Typography variant="caption" sx={{ fontWeight: 700, color: '#8F4E00' }}>
+                            Optimaliseren...
+                          </Typography>
+                        </Box>
+                      ) : (
+                        <>
+                          <Typography variant="caption" sx={{ fontWeight: 800, color: '#8F4E00', display: 'block', mb: 0.5 }}>
+                            {editImageUrl.startsWith('data:image/') ? '✓ Foto geselecteerd' : 'Upload eigen foto'}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                            Kies bestand of sleep hierheen
+                          </Typography>
+                        </>
+                      )}
+                    </Box>
+
+                    {/* Direct image link paste zone */}
+                    <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Of plak een afbeeldings-URL"
+                        variant="outlined"
+                        value={editImageUrl.startsWith('data:image/') ? '' : editImageUrl}
+                        onChange={(e) => setEditImageUrl(e.target.value)}
+                        placeholder="https://images.unsplash.com/..."
+                      />
+                    </Box>
+                  </Box>
+
+                  {/* Preset Library for editing */}
+                  <Box>
+                    <Typography variant="caption" sx={{ fontWeight: 800, mb: 1, color: '#311300', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block' }}>
+                      Kies een foto uit bibliotheek
+                    </Typography>
+                    <Box 
+                      sx={{ 
+                        display: 'flex', 
+                        gap: 1.2, 
+                        overflowX: 'auto', 
+                        pb: 1,
+                        px: 0.2,
+                        '&::-webkit-scrollbar': { height: '5px' },
+                        '&::-webkit-scrollbar-track': { backgroundColor: '#f1f1f1', borderRadius: '10px' },
+                        '&::-webkit-scrollbar-thumb': { backgroundColor: '#c1c1c1', borderRadius: '10px' }
+                      }}
+                    >
+                      {DISH_IMAGE_PRESETS.map((preset, idx) => {
+                        const isSelected = editImageUrl === preset.url;
+                        return (
+                          <Box
+                            key={idx}
+                            onClick={() => {
+                              setEditImageUrl(preset.url);
+                              if (!editCuisine) {
+                                setEditCuisine(preset.category);
+                              }
+                            }}
+                            sx={{
+                              flex: '0 0 auto',
+                              width: 65,
+                              textAlign: 'center',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s',
+                              '&:hover': { transform: 'translateY(-2px)' }
+                            }}
+                          >
+                            <Box
+                              sx={{
+                                width: 50,
+                                height: 50,
+                                borderRadius: '12px',
+                                overflow: 'hidden',
+                                margin: '0 auto 4px',
+                                border: isSelected ? '3px solid #8F4E00' : '1px solid #F0E0D6',
+                                boxShadow: isSelected ? '0 0 0 2px rgba(143, 78, 0, 0.2)' : 'none',
+                                position: 'relative'
+                              }}
+                            >
+                              <img
+                                src={preset.url}
+                                alt={preset.label}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                referrerPolicy="no-referrer"
+                              />
+                            </Box>
+                            <Typography variant="caption" sx={{ fontWeight: isSelected ? 800 : 600, color: isSelected ? '#8F4E00' : '#5c5c5c', fontSize: '0.65rem', display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                              {preset.label}
+                            </Typography>
+                          </Box>
+                        );
+                      })}
+                    </Box>
+                  </Box>
 
                   {editImageUrl && (
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                      <Box sx={{ width: '100%', height: 130, borderRadius: '12px', overflow: 'hidden', border: '1px solid #F0E0D6' }}>
-                        <img src={editImageUrl} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} referrerPolicy="no-referrer" />
+                    <Box 
+                      sx={{ 
+                        p: 1.5, 
+                        borderRadius: '12px', 
+                        border: '1px solid #F0E0D6', 
+                        backgroundColor: '#FAF7F5',
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: 2 
+                      }}
+                    >
+                      <img
+                        src={editImageUrl}
+                        alt="Preview"
+                        style={{ width: 85, height: 60, objectFit: 'cover', borderRadius: 8, border: '1px solid #F0E0D6' }}
+                        referrerPolicy="no-referrer"
+                      />
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.2, flexGrow: 1 }}>
+                        <Typography variant="caption" sx={{ fontWeight: 800, color: '#311300' }}>
+                          Geselecteerde afbeelding
+                        </Typography>
+                        <Button
+                          size="small"
+                          color="error"
+                          variant="outlined"
+                          onClick={() => setEditImageUrl('')}
+                          sx={{ 
+                            fontWeight: 800, 
+                            textTransform: 'none', 
+                            py: 0.2, 
+                            px: 1,
+                            mt: 0.5, 
+                            fontSize: '0.72rem',
+                            alignSelf: 'flex-start',
+                            borderRadius: '6px',
+                            borderColor: '#FFDCC0',
+                            color: '#d32f2f',
+                            '&:hover': {
+                              backgroundColor: '#ffebee',
+                              borderColor: '#d32f2f'
+                            }
+                          }}
+                        >
+                          Afbeelding verwijderen
+                        </Button>
                       </Box>
-                      <Button
-                        size="small"
-                        color="error"
-                        variant="text"
-                        onClick={() => setEditImageUrl('')}
-                        sx={{ fontWeight: 800, textTransform: 'none', alignSelf: 'flex-start' }}
-                      >
-                        Afbeelding verwijderen
-                      </Button>
                     </Box>
                   )}
                 </Box>
