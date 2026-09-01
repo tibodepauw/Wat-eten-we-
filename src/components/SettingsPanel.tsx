@@ -22,10 +22,12 @@ import {
   DialogTitle,
   DialogContent,
   DialogContentText,
-  DialogActions
+  DialogActions,
+  Switch,
+  FormControlLabel
 } from '@mui/material';
 import { 
-  User, Plus, Database, Cloud, RefreshCw, AlertTriangle, HelpCircle, Key, Palette, Image, Check, ChevronRight, Lock, Trash2
+  User, Plus, Database, Cloud, RefreshCw, AlertTriangle, HelpCircle, Key, Palette, Image, Check, ChevronRight, Lock, Trash2, Mail, ShieldCheck
 } from 'lucide-react';
 import { MealDatabase, isFirestoreFallback } from '../lib/db';
 import { Member } from '../types';
@@ -81,12 +83,16 @@ export default function SettingsPanel({ activeProfile, members, onSwitchProfile,
   // Form states
   const [profileName, setProfileName] = useState('');
   const [profilePassword, setProfilePassword] = useState('');
+  const [profileEmail, setProfileEmail] = useState('');
+  const [profile2FA, setProfile2FA] = useState(false);
   const [avatarColor, setAvatarColor] = useState('#8F4E00');
   const [avatarLetter, setAvatarLetter] = useState('U');
   const [avatarIcon, setAvatarIcon] = useState('');
 
   const [addMemberName, setAddMemberName] = useState('');
   const [addMemberPassword, setAddMemberPassword] = useState('');
+  const [addMemberEmail, setAddMemberEmail] = useState('');
+  const [addMember2FA, setAddMember2FA] = useState(false);
 
   const [profileErrorText, setProfileErrorText] = useState('');
   const [profileSuccessText, setProfileSuccessText] = useState('');
@@ -110,12 +116,16 @@ export default function SettingsPanel({ activeProfile, members, onSwitchProfile,
       const targetColor = activeMember.avatarColor || getAvatarColor(activeMember.name);
       const targetLetter = activeMember.avatarLetter || activeMember.name.charAt(0).toUpperCase();
       const targetIcon = activeMember.avatarIcon || '';
+      const targetEmail = activeMember.email || '';
+      const target2FA = !!activeMember.twoFactorEnabled;
 
       if (profileName !== targetName) setProfileName(targetName);
       if (profilePassword !== targetPassword) setProfilePassword(targetPassword);
       if (avatarColor !== targetColor) setAvatarColor(targetColor);
       if (avatarLetter !== targetLetter) setAvatarLetter(targetLetter);
       if (avatarIcon !== targetIcon) setAvatarIcon(targetIcon);
+      if (profileEmail !== targetEmail) setProfileEmail(targetEmail);
+      if (profile2FA !== target2FA) setProfile2FA(target2FA);
       
       setProfileErrorText('');
       setProfileSuccessText('');
@@ -127,6 +137,8 @@ export default function SettingsPanel({ activeProfile, members, onSwitchProfile,
     activeMember?.avatarColor,
     activeMember?.avatarLetter,
     activeMember?.avatarIcon,
+    activeMember?.email,
+    activeMember?.twoFactorEnabled,
     activeProfile
   ]);
 
@@ -134,6 +146,7 @@ export default function SettingsPanel({ activeProfile, members, onSwitchProfile,
     if (!activeMember) return;
     const trimName = profileName.trim();
     const trimPass = profilePassword.trim();
+    const trimEmail = profileEmail.trim();
     const trimLetter = avatarLetter.trim().substring(0, 2);
 
     if (!trimName) {
@@ -146,6 +159,10 @@ export default function SettingsPanel({ activeProfile, members, onSwitchProfile,
     }
     if (!trimPass) {
       setProfileErrorText('Wachtwoord mag niet leeg zijn!');
+      return;
+    }
+    if (profile2FA && !trimEmail) {
+      setProfileErrorText('Voer een geldig e-mailadres in om 2FA in te schakelen.');
       return;
     }
 
@@ -163,12 +180,14 @@ export default function SettingsPanel({ activeProfile, members, onSwitchProfile,
     setProfileSuccessText('');
 
     try {
-      const resp = await MealDatabase.updateMember(activeMember.id, {
+      await MealDatabase.updateMember(activeMember.id, {
         name: trimName,
         password: trimPass,
         avatarColor,
         avatarLetter: trimLetter || trimName.charAt(0).toUpperCase(),
-        avatarIcon
+        avatarIcon,
+        email: trimEmail,
+        twoFactorEnabled: profile2FA
       });
 
       setProfileSuccessText('Je profiel is succesvol aangepast!');
@@ -351,6 +370,42 @@ export default function SettingsPanel({ activeProfile, members, onSwitchProfile,
                   }}
                   placeholder="Typ nieuw wachtwoord"
                   helperText="Om veilig in te loggen via het startscherm"
+                  sx={{ mb: 2 }}
+                />
+
+                <TextField
+                  label="E-mailadres (voor 2FA)"
+                  type="email"
+                  fullWidth
+                  size="small"
+                  variant="outlined"
+                  value={profileEmail}
+                  onChange={(e) => {
+                    setProfileEmail(e.target.value);
+                    setProfileErrorText('');
+                  }}
+                  placeholder="naam@voorbeeld.nl"
+                  helperText="Optioneel: vereist voor tweestapsverificatie via Brevo"
+                  sx={{ mb: 1.5 }}
+                />
+
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={profile2FA}
+                      onChange={(e) => setProfile2FA(e.target.checked)}
+                      color="primary"
+                    />
+                  }
+                  label={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                      <ShieldCheck size={16} color="#8F4E00" />
+                      <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                        Tweestapsverificatie (2FA via e-mail)
+                      </Typography>
+                    </Box>
+                  }
+                  sx={{ mb: 1 }}
                 />
               </Box>
             </Grid>

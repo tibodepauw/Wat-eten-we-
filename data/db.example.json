@@ -1,0 +1,75 @@
+{
+  "members": [
+    {
+      "id": "chef",
+      "name": "Chef",
+      "password": "scrypt:4d87a9bc12e54f3a8b2c1d0e9f8a7b6c:0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d",
+      "avatarColor": "#8F4E00",
+      "avatarLetter": "C",
+      "avatarIcon": "smile",
+      "email": "",
+      "twoFactorEnabled": false,
+      "createdAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "proever",
+      "name": "Proever",
+      "password": "scrypt:1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d:1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b",
+      "avatarColor": "#5a7862",
+      "avatarLetter": "P",
+      "avatarIcon": "heart",
+      "email": "",
+      "twoFactorEnabled": false,
+      "createdAt": "2026-01-01T00:00:00.000Z"
+    }
+  ],
+  "dishes": [
+    {
+      "id": "1",
+      "name": "Vlaamse frites met stoverij",
+      "description": "Heerlijke goudgele frietjes geserveerd met rijk en zacht gegaard stoofvlees.",
+      "cuisine": "Belgisch",
+      "imageUrl": "https://images.unsplash.com/photo-1576107232684-1279f390859f?w=600&auto=format&fit=crop",
+      "tags": ["Klassieker", "Comfort Food", "Vlees"],
+      "suitableMoments": ["Warm eten"],
+      "ingredients": [
+        { "name": "Runderlappen", "amount": "1 kg", "category": "Vlees & Vis" },
+        { "name": "Grote uien", "amount": "4 stuks", "category": "Groenten & Fruit" },
+        { "name": "Bruin bier", "amount": "2 flesjes", "category": "Kruidenier & Droogwaren" },
+        { "name": "Sneetje bruin brood", "amount": "1 plak", "category": "Bakkerij" },
+        { "name": "Mosterd", "amount": "2 el", "category": "Kruidenier & Droogwaren" },
+        { "name": "Frites", "amount": "1 kg", "category": "Overig" }
+      ],
+      "recipe": "1. Snijd het vlees in blokjes en bak bruin.\n2. Voeg gesnipperde uien toe.\n3. Blus af met bruin bier en bouillon.\n4. Voeg een snee brood met mosterd toe.\n5. Laat 3 uur zachtjes stoven.\n6. Serveer met warme frites.",
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "addedBy": "Chef"
+    },
+    {
+      "id": "2",
+      "name": "Spaghetti Bolognese",
+      "description": "Klassieke pastaschotel met een rijke saus van gehakt, groenten en tomaten.",
+      "cuisine": "Italiaans",
+      "imageUrl": "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=600&auto=format&fit=crop",
+      "tags": ["Pasta", "Snel", "Favoriet"],
+      "suitableMoments": ["Warm eten"],
+      "ingredients": [
+        { "name": "Rundergehakt", "amount": "500g", "category": "Vlees & Vis" },
+        { "name": "Spaghetti", "amount": "1 pak", "category": "Kruidenier & Droogwaren" },
+        { "name": "Gepelde tomaten", "amount": "1 blik", "category": "Kruidenier & Droogwaren" },
+        { "name": "Wortel", "amount": "1 stuk", "category": "Groenten & Fruit" },
+        { "name": "Bleekselderij", "amount": "1 stengel", "category": "Groenten & Fruit" },
+        { "name": "Ui", "amount": "1 stuk", "category": "Groenten & Fruit" },
+        { "name": "Parmezaanse kaas", "amount": "100g", "category": "Zuivel" }
+      ],
+      "recipe": "1. Kook de pasta al dente.\n2. Rul het gehakt bruin met ui en groenten.\n3. Voeg tomaten en kruiden toe.\n4. Laat sudderen en serveer met kaas.",
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "addedBy": "Proever"
+    }
+  ],
+  "ratings": {
+    "1": { "Chef": 9, "Proever": 10 },
+    "2": { "Chef": 8, "Proever": 9 }
+  },
+  "planned_meals": [],
+  "shopping_list": []
+}

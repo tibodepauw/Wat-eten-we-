@@ -38,6 +38,8 @@ export interface Member {
   avatarColor?: string;
   avatarLetter?: string;
   avatarIcon?: string;
+  email?: string;
+  twoFactorEnabled?: boolean;
   createdAt: any;
 }
 

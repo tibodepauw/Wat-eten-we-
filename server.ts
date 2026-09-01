@@ -162,7 +162,7 @@ function checkLoginRateLimit(ip: string): boolean {
   return true;
 }
 
-// Periodically clean up expired entries every 5 minutes
+// Periodically clean up expired login attempts every 5 minutes
 setInterval(() => {
   const now = Date.now();
   for (const [ip, entry] of loginAttempts.entries()) {
@@ -172,13 +172,70 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000);
 
-// Default initial state
+// --- Brevo 2FA Configuration and Helper ---
+const BREVO_API_KEY = process.env.BREVO_API_KEY || '';
+const BREVO_SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL || 'noreply@watetenwe.app';
+const BREVO_SENDER_NAME = process.env.BREVO_SENDER_NAME || 'Wat eten we';
+
+// Temporary 2FA verification storage (tempToken -> { code, expiresAt, member })
+const twoFactorSessions = new Map<string, { code: string; expiresAt: number; member: any }>();
+
+function maskEmail(email: string): string {
+  if (!email || !email.includes('@')) return email;
+  const [local, domain] = email.split('@');
+  if (local.length <= 2) return `*@${domain}`;
+  return `${local.charAt(0)}***${local.charAt(local.length - 1)}@${domain}`;
+}
+
+async function sendBrevoEmail(toEmail: string, name: string, code: string): Promise<boolean> {
+  if (!BREVO_API_KEY) {
+    console.log(`[Brevo 2FA Dev Mode] Verificatiecode voor ${name} (${toEmail}): ${code}`);
+    return true;
+  }
+
+  try {
+    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'api-key': BREVO_API_KEY,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({
+        sender: { name: BREVO_SENDER_NAME, email: BREVO_SENDER_EMAIL },
+        to: [{ email: toEmail, name: name }],
+        subject: 'Je verificatiecode voor Wat eten we',
+        htmlContent: `<!DOCTYPE html><html><body style="font-family: sans-serif; padding: 20px; color: #311300;">
+          <h2 style="color: #8F4E00;">Wat eten we?</h2>
+          <p>Hallo ${name},</p>
+          <p>Je tijdelijke verificatiecode voor tweestapsverificatie is:</p>
+          <div style="font-size: 28px; font-weight: bold; letter-spacing: 4px; padding: 12px 24px; background: #FFDCC0; color: #8F4E00; display: inline-block; border-radius: 12px; margin: 16px 0;">${code}</div>
+          <p style="color: #666; font-size: 13px;">Deze code is 10 minuten geldig. Deel deze code met niemand.</p>
+        </body></html>`
+      })
+    });
+    return res.ok;
+  } catch (error) {
+    console.error('Error sending Brevo email:', error);
+    return false;
+  }
+}
+
+// Prune expired 2FA sessions
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of twoFactorSessions.entries()) {
+    if (now > entry.expiresAt) {
+      twoFactorSessions.delete(key);
+    }
+  }
+}, 5 * 60 * 1000);
+
+// Generic default initial state (clean public template)
 const DEFAULT_DB = {
   members: [
-    { id: 'papa', name: 'Papa', password: hashPasswordSync('papa'), avatarColor: '#8F4E00', avatarLetter: 'P', avatarIcon: 'smile', createdAt: new Date().toISOString() },
-    { id: 'mama', name: 'Mama', password: hashPasswordSync('mama'), avatarColor: '#5a7862', avatarLetter: 'M', avatarIcon: 'heart', createdAt: new Date().toISOString() },
-    { id: 'tibo', name: 'Tibo', password: hashPasswordSync('tibo'), avatarColor: '#f28f3b', avatarLetter: 'T', avatarIcon: 'star', createdAt: new Date().toISOString() },
-    { id: 'briek', name: 'Briek', password: hashPasswordSync('briek'), avatarColor: '#9b59b6', avatarLetter: 'B', avatarIcon: 'crown', createdAt: new Date().toISOString() }
+    { id: 'chef', name: 'Chef', password: hashPasswordSync('chef'), avatarColor: '#8F4E00', avatarLetter: 'C', avatarIcon: 'smile', email: '', twoFactorEnabled: false, createdAt: new Date().toISOString() },
+    { id: 'proever', name: 'Proever', password: hashPasswordSync('proever'), avatarColor: '#5a7862', avatarLetter: 'P', avatarIcon: 'heart', email: '', twoFactorEnabled: false, createdAt: new Date().toISOString() }
   ],
   dishes: [
     {
@@ -192,14 +249,14 @@ const DEFAULT_DB = {
       ingredients: [
         { name: 'Runderlappen', amount: '1 kg', category: 'Vlees & Vis' },
         { name: 'Grote uien', amount: '4 stuks', category: 'Groenten & Fruit' },
-        { name: 'Bruin bier (bijv. Sint Bernardus)', amount: '2 flesjes', category: 'Kruidenier & Droogwaren' },
+        { name: 'Bruin bier', amount: '2 flesjes', category: 'Kruidenier & Droogwaren' },
         { name: 'Sneetje bruin brood', amount: '1 plak', category: 'Bakkerij' },
         { name: 'Mosterd', amount: '2 el', category: 'Kruidenier & Droogwaren' },
         { name: 'Frites', amount: '1 kg', category: 'Overig' }
       ],
       recipe: '1. Snijd de runderlappen in blokjes en bestrooi met zout en peper.\n2. Bak het vlees bruin in boter.\n3. Voeg gesnipperde uien toe en bak mee.\n4. Blus af met bruin bier en runderbouillon.\n5. Voeg een snee brood met mosterd en kruiden toe.\n6. Laat 3 uur zachtjes stoven.\n7. Serveer met vers gebakken frietjes en mayonaise.',
       createdAt: new Date().toISOString(),
-      addedBy: 'Papa'
+      addedBy: 'Chef'
     },
     {
       id: '2',
@@ -220,7 +277,7 @@ const DEFAULT_DB = {
       ],
       recipe: '1. Kook de spaghetti volgens de verpakking al dente.\n2. Fruit ui en knoflook in olijfolie.\n3. Voeg gehakt toe en rul het bruin.\n4. Voeg fijngesneden wortel, bleekselderij en tomatenpuree toe.\n5. Voeg gepelde tomaten en Italiaanse kruiden toe.\n6. Laat 30 minuten sudderen.\n7. Bestrooi met Parmezaanse kaas.',
       createdAt: new Date().toISOString(),
-      addedBy: 'Mama'
+      addedBy: 'Proever'
     },
     {
       id: '3',
@@ -239,7 +296,7 @@ const DEFAULT_DB = {
       ],
       recipe: '1. Meng 250g bloem en een snuf zout.\n2. Voeg 2 eieren en de helft van 500ml melk toe.\n3. Klop tot een glad beslag en voeg de rest van de melk toe.\n4. Verhit boter in een koekenpan.\n5. Giet beslag erin en bak goudbruin aan beide kanten.\n6. Serveer warm met stroop of poedersuiker.',
       createdAt: new Date().toISOString(),
-      addedBy: 'Tibo'
+      addedBy: 'Chef'
     },
     {
       id: '4',
@@ -259,14 +316,14 @@ const DEFAULT_DB = {
       ],
       recipe: '1. Kook pandanrijst.\n2. Fruit rode currypasta in een scheutje olie.\n3. Voeg kipdijfilet in reepjes toe en bak rondom bruin.\n4. Giet kokosmelk erbij en breng aan de kook.\n5. Voeg groenten (paprika, bamboescheuten, boontjes) toe.\n6. Laat 15 minuten pruttelen.\n7. Garneer met verse koriander.',
       createdAt: new Date().toISOString(),
-      addedBy: 'Mama'
+      addedBy: 'Proever'
     }
   ],
   ratings: {
-    '1': { 'Papa': 10, 'Mama': 8, 'Tibo': 10, 'Briek': 10 },
-    '2': { 'Papa': 8, 'Mama': 10, 'Tibo': 8, 'Briek': 7 },
-    '3': { 'Papa': 6, 'Mama': 6, 'Tibo': 10, 'Briek': 9 },
-    '4': { 'Papa': 8, 'Mama': 10, 'Tibo': 4, 'Briek': 5 }
+    '1': { 'Chef': 10, 'Proever': 8 },
+    '2': { 'Chef': 8, 'Proever': 10 },
+    '3': { 'Chef': 7, 'Proever': 9 },
+    '4': { 'Chef': 8, 'Proever': 10 }
   },
   planned_meals: [],
   shopping_list: []
@@ -290,11 +347,19 @@ function initDatabase() {
     memoryDB = JSON.parse(content);
     let modified = false;
 
-    // Migrate passwords
+    // Migrate passwords and 2FA defaults
     if (memoryDB.members && Array.isArray(memoryDB.members)) {
       memoryDB.members = memoryDB.members.map((m: any) => {
         if (!m.password || !m.password.startsWith('scrypt:')) {
           m.password = hashPasswordSync(m.password || m.name.toLowerCase());
+          modified = true;
+        }
+        if (m.twoFactorEnabled === undefined) {
+          m.twoFactorEnabled = false;
+          modified = true;
+        }
+        if (m.email === undefined) {
+          m.email = '';
           modified = true;
         }
         return m;
@@ -476,7 +541,7 @@ app.get('/api/members', (_req: Request, res: Response) => {
 
 // POST: Add new member (Self-service signup)
 app.post('/api/members', async (req: Request, res: Response) => {
-  const { name, password, avatarColor, avatarLetter, avatarIcon } = req.body;
+  const { name, password, avatarColor, avatarLetter, avatarIcon, email, twoFactorEnabled } = req.body;
   if (!name || typeof name !== 'string' || name.trim().length === 0) {
     res.status(400).json({ error: 'Naam is verplicht.' });
     return;
@@ -506,6 +571,8 @@ app.post('/api/members', async (req: Request, res: Response) => {
     avatarColor: avatarColor || '#8F4E00',
     avatarLetter: avatarLetter || cleanName.charAt(0).toUpperCase(),
     avatarIcon: avatarIcon || '',
+    email: email ? String(email).trim().toLowerCase() : '',
+    twoFactorEnabled: !!twoFactorEnabled,
     createdAt: new Date().toISOString()
   };
 
@@ -517,7 +584,7 @@ app.post('/api/members', async (req: Request, res: Response) => {
   res.json({ ...publicMember, token });
 });
 
-// POST: Login securely with rate limiting
+// POST: Login securely with rate limiting and optional Brevo 2FA
 app.post('/api/members/login', async (req: Request, res: Response) => {
   const ip = req.ip || req.socket.remoteAddress || 'unknown';
   if (!checkLoginRateLimit(ip)) {
@@ -543,7 +610,53 @@ app.post('/api/members/login', async (req: Request, res: Response) => {
     return;
   }
 
+  // Check optional 2FA via Brevo email
+  if (member.twoFactorEnabled && member.email) {
+    const code = String(crypto.randomInt(100000, 999999));
+    const tempToken = crypto.randomUUID();
+    twoFactorSessions.set(tempToken, {
+      code,
+      expiresAt: Date.now() + 10 * 60 * 1000,
+      member
+    });
+
+    await sendBrevoEmail(member.email, member.name, code);
+    res.json({
+      requires2FA: true,
+      tempToken,
+      emailMasked: maskEmail(member.email),
+      message: `Verificatiecode verzonden naar ${maskEmail(member.email)}`
+    });
+    return;
+  }
+
   const { password: _, ...publicMember } = member;
+  const token = createToken({ id: publicMember.id, name: publicMember.name });
+  res.json({ success: true, member: publicMember, token });
+});
+
+// POST: Verify 2FA code
+app.post('/api/members/verify-2fa', (req: Request, res: Response) => {
+  const { tempToken, code } = req.body;
+  if (!tempToken || !code) {
+    res.status(400).json({ error: 'Verificatiecode en sessie-identificatie zijn verplicht.' });
+    return;
+  }
+
+  const session = twoFactorSessions.get(tempToken);
+  if (!session || Date.now() > session.expiresAt) {
+    twoFactorSessions.delete(tempToken);
+    res.status(400).json({ error: 'Verificatiecode is verlopen of ongeldig. Log opnieuw in.' });
+    return;
+  }
+
+  if (session.code !== String(code).trim()) {
+    res.status(400).json({ error: 'Onjuiste verificatiecode.' });
+    return;
+  }
+
+  twoFactorSessions.delete(tempToken);
+  const { password: _, ...publicMember } = session.member;
   const token = createToken({ id: publicMember.id, name: publicMember.name });
   res.json({ success: true, member: publicMember, token });
 });
@@ -551,7 +664,7 @@ app.post('/api/members/login', async (req: Request, res: Response) => {
 // PUT: Update member details
 app.put('/api/members/:id', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
-  const { name, password, avatarColor, avatarLetter, avatarIcon } = req.body;
+  const { name, password, avatarColor, avatarLetter, avatarIcon, email, twoFactorEnabled } = req.body;
 
   if (!memoryDB.members) memoryDB.members = [];
 
@@ -586,6 +699,8 @@ app.put('/api/members/:id', requireAuth, async (req: AuthenticatedRequest, res: 
     avatarColor: avatarColor || oldMember.avatarColor,
     avatarLetter: avatarLetter || oldMember.avatarLetter,
     avatarIcon: avatarIcon !== undefined ? avatarIcon : oldMember.avatarIcon,
+    email: email !== undefined ? String(email).trim().toLowerCase() : (oldMember.email || ''),
+    twoFactorEnabled: twoFactorEnabled !== undefined ? !!twoFactorEnabled : !!oldMember.twoFactorEnabled
   };
 
   memoryDB.members[memberIdx] = updatedMember;

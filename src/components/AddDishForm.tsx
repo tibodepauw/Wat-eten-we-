@@ -631,7 +631,7 @@ export default function AddDishForm({ activeProfile, onSuccess }: AddDishFormPro
                     setDescription(e.target.value);
                   }
                 }}
-                placeholder="Bijv. Met extra veel kaas of Papa's geheime sausje..."
+                placeholder="Bijv. Met extra veel kaas of een geheim sausje..."
                 slotProps={{
                   input: {
                     startAdornment: <FileText size={18} style={{ alignSelf: 'flex-start', marginTop: '12px' }} className="text-gray-400 mr-2" />,

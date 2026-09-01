@@ -86,6 +86,12 @@ export default function ProfilePicker({ onSelectProfile, activeProfile }: Profil
   const [loginErrorText, setLoginErrorText] = useState('');
   const [authenticating, setAuthenticating] = useState(false);
 
+  // 2FA state
+  const [requires2FA, setRequires2FA] = useState(false);
+  const [tempToken, setTempToken] = useState('');
+  const [emailMasked, setEmailMasked] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+
   useEffect(() => {
     // Subscribe to database profiles in real-time
     const unsubscribe = MealDatabase.subscribeMembers((fetchedMembers) => {
@@ -99,6 +105,9 @@ export default function ProfilePicker({ onSelectProfile, activeProfile }: Profil
     setSelectedMember(member);
     setPasswordInput('');
     setLoginErrorText('');
+    setRequires2FA(false);
+    setTempToken('');
+    setOtpCode('');
   };
 
   const handleLoginSubmit = async () => {
@@ -107,7 +116,12 @@ export default function ProfilePicker({ onSelectProfile, activeProfile }: Profil
     setLoginErrorText('');
     try {
       const res = await MealDatabase.loginMember(selectedMember.name, passwordInput);
-      if (res.success) {
+      if (res.requires2FA) {
+        setRequires2FA(true);
+        setTempToken(res.tempToken);
+        setEmailMasked(res.emailMasked || '');
+        setOtpCode('');
+      } else if (res.success) {
         onSelectProfile(selectedMember.name);
         setSelectedMember(null);
       } else {
@@ -115,6 +129,29 @@ export default function ProfilePicker({ onSelectProfile, activeProfile }: Profil
       }
     } catch (err: any) {
       setLoginErrorText(err.message || 'Fout bij het inloggen. Probeer het opnieuw.');
+    } finally {
+      setAuthenticating(false);
+    }
+  };
+
+  const handleVerify2FA = async () => {
+    if (!otpCode.trim()) {
+      setLoginErrorText('Voer de 6-cijferige code in.');
+      return;
+    }
+    setAuthenticating(true);
+    setLoginErrorText('');
+    try {
+      const res = await MealDatabase.verify2FA(tempToken, otpCode.trim());
+      if (res.success && selectedMember) {
+        onSelectProfile(selectedMember.name);
+        setSelectedMember(null);
+        setRequires2FA(false);
+      } else {
+        setLoginErrorText('Onjuiste of ongeldige code.');
+      }
+    } catch (err: any) {
+      setLoginErrorText(err.message || 'Fout bij het verifiëren van de code.');
     } finally {
       setAuthenticating(false);
     }
@@ -355,55 +392,105 @@ export default function ProfilePicker({ onSelectProfile, activeProfile }: Profil
                 )}
               </Avatar>
 
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                Voer je wachtwoord in om veilig toegang te krijgen tot de app.
-                <br />
-                <span style={{ fontSize: '0.75rem', color: '#8F4E00', fontWeight: 'bold' }}>
-                  (Tip: Standaard wachtwoord is je naam in kleine letters, bijv. '{selectedMember.name.toLowerCase()}')
-                </span>
-              </Typography>
+              {requires2FA ? (
+                <>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    Tweestapsverificatie is actief voor dit profiel. Voer de 6-cijferige code in die naar <strong>{emailMasked}</strong> is verzonden.
+                  </Typography>
 
-              {loginErrorText && (
-                <Alert severity="error" sx={{ mb: 2, borderRadius: '12px' }}>
-                  {loginErrorText}
-                </Alert>
+                  {loginErrorText && (
+                    <Alert severity="error" sx={{ mb: 2, borderRadius: '12px' }}>
+                      {loginErrorText}
+                    </Alert>
+                  )}
+
+                  <TextField
+                    autoFocus
+                    margin="dense"
+                    label="6-cijferige verificatiecode"
+                    type="text"
+                    fullWidth
+                    variant="outlined"
+                    value={otpCode}
+                    slotProps={{
+                      htmlInput: {
+                        maxLength: 6,
+                        style: { textAlign: 'center', fontSize: '1.4rem', letterSpacing: '4px', fontWeight: 800 }
+                      }
+                    }}
+                    onChange={(e) => {
+                      setOtpCode(e.target.value);
+                      setLoginErrorText('');
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleVerify2FA();
+                      }
+                    }}
+                    placeholder="123456"
+                  />
+                </>
+              ) : (
+                <>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                    Voer je wachtwoord in om veilig toegang te krijgen tot de app.
+                    <br />
+                    <span style={{ fontSize: '0.75rem', color: '#8F4E00', fontWeight: 'bold' }}>
+                      (Tip: Standaard wachtwoord is je naam in kleine letters, bijv. '{selectedMember.name.toLowerCase()}')
+                    </span>
+                  </Typography>
+
+                  {loginErrorText && (
+                    <Alert severity="error" sx={{ mb: 2, borderRadius: '12px' }}>
+                      {loginErrorText}
+                    </Alert>
+                  )}
+
+                  <TextField
+                    autoFocus
+                    margin="dense"
+                    label="Wachtwoord"
+                    type="password"
+                    fullWidth
+                    variant="outlined"
+                    value={passwordInput}
+                    onChange={(e) => {
+                      setPasswordInput(e.target.value);
+                      setLoginErrorText('');
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleLoginSubmit();
+                      }
+                    }}
+                    placeholder="Je persoonlijke wachtwoord"
+                  />
+                </>
               )}
-
-              <TextField
-                autoFocus
-                margin="dense"
-                label="Wachtwoord"
-                type="password"
-                fullWidth
-                variant="outlined"
-                value={passwordInput}
-                onChange={(e) => {
-                  setPasswordInput(e.target.value);
-                  setLoginErrorText('');
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleLoginSubmit();
-                  }
-                }}
-                placeholder="Je persoonlijke wachtwoord"
-              />
             </DialogContent>
             <DialogActions sx={{ px: 3, pb: 3, justifyContent: 'space-between' }}>
               <Button
-                onClick={() => setSelectedMember(null)}
+                onClick={() => {
+                  if (requires2FA) {
+                    setRequires2FA(false);
+                    setOtpCode('');
+                    setLoginErrorText('');
+                  } else {
+                    setSelectedMember(null);
+                  }
+                }}
                 variant="text"
                 sx={{ color: 'text.secondary', fontWeight: 700 }}
               >
-                Annuleren
+                {requires2FA ? 'Terug' : 'Annuleren'}
               </Button>
               <Button 
-                onClick={handleLoginSubmit} 
+                onClick={requires2FA ? handleVerify2FA : handleLoginSubmit} 
                 variant="contained" 
                 disabled={authenticating}
                 sx={{ borderRadius: '100px', px: 3 }}
               >
-                {authenticating ? 'Inloggen...' : 'Volgende'}
+                {authenticating ? (requires2FA ? 'Verifiëren...' : 'Inloggen...') : (requires2FA ? 'Verifieer code' : 'Volgende')}
               </Button>
             </DialogActions>
           </>

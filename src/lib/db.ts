@@ -259,10 +259,10 @@ export const MealDatabase = {
     return syncEngine.subscribeMembers(callback);
   },
 
-  async addMember(name: string, password?: string, avatarColor?: string, avatarLetter?: string, avatarIcon?: string): Promise<any> {
+  async addMember(name: string, password?: string, avatarColor?: string, avatarLetter?: string, avatarIcon?: string, email?: string, twoFactorEnabled?: boolean): Promise<any> {
     const data = await fetchJSON('/api/members', {
       method: 'POST',
-      body: JSON.stringify({ name, password, avatarColor, avatarLetter, avatarIcon })
+      body: JSON.stringify({ name, password, avatarColor, avatarLetter, avatarIcon, email, twoFactorEnabled })
     });
     if (data.token) {
       setAuthToken(data.token);
@@ -275,6 +275,17 @@ export const MealDatabase = {
     const resp = await fetchJSON('/api/members/login', {
       method: 'POST',
       body: JSON.stringify({ name, password })
+    });
+    if (resp.token) {
+      setAuthToken(resp.token);
+    }
+    return resp; // returns { success: true, member, token } or { requires2FA: true, tempToken, emailMasked }
+  },
+
+  async verify2FA(tempToken: string, code: string): Promise<any> {
+    const resp = await fetchJSON('/api/members/verify-2fa', {
+      method: 'POST',
+      body: JSON.stringify({ tempToken, code })
     });
     if (resp.token) {
       setAuthToken(resp.token);
