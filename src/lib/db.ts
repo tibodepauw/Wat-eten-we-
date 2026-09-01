@@ -5,8 +5,36 @@
 
 import { Dish, Rating, Member, PlannedMeal, ShoppingItem } from '../types';
 
+const AUTH_TOKEN_KEY = 'we_auth_token';
+
+export function getAuthToken(): string | null {
+  return localStorage.getItem(AUTH_TOKEN_KEY);
+}
+
+export function setAuthToken(token: string | null): void {
+  if (token) {
+    localStorage.setItem(AUTH_TOKEN_KEY, token);
+  } else {
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+  }
+}
+
 const fetchJSON = async (url: string, options?: RequestInit) => {
-  const response = await fetch(url, options);
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options?.headers as Record<string, string> || {})
+  };
+
+  const token = getAuthToken();
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const response = await fetch(url, {
+    ...options,
+    headers
+  });
+
   if (!response.ok) {
     let errorMsg = `HTTP error: ${response.status}`;
     try {
@@ -25,7 +53,7 @@ const fetchJSON = async (url: string, options?: RequestInit) => {
 export const isFirestoreFallback = true;
 export const db = null;
 
-// Unified Central Sync Engine
+// Unified Central Sync Engine with Page Visibility Management
 type Listener<T> = (data: T) => void;
 
 class SyncEngine {
@@ -44,10 +72,43 @@ class SyncEngine {
   private pollIntervalHandle: any = null;
   private isPolling = false;
 
+  constructor() {
+    // Page Visibility API to pause polling on hidden/minimized tabs
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+          this.pausePolling();
+        } else {
+          this.resumePolling();
+        }
+      });
+    }
+  }
+
   private startPollingIfNeeded() {
-    if (this.pollIntervalHandle) return;
+    if (this.pollIntervalHandle || (typeof document !== 'undefined' && document.hidden)) return;
     this.pollSync();
     this.pollIntervalHandle = setInterval(() => this.pollSync(), 2500);
+  }
+
+  private pausePolling() {
+    if (this.pollIntervalHandle) {
+      clearInterval(this.pollIntervalHandle);
+      this.pollIntervalHandle = null;
+    }
+  }
+
+  private resumePolling() {
+    const total =
+      this.memberListeners.size +
+      this.dishesListeners.size +
+      this.ratingsListeners.size +
+      this.plannedListeners.size +
+      this.shoppingListeners.size;
+    if (total > 0 && !this.pollIntervalHandle) {
+      this.pollSync();
+      this.pollIntervalHandle = setInterval(() => this.pollSync(), 2500);
+    }
   }
 
   private stopPollingIfEmpty() {
@@ -201,9 +262,11 @@ export const MealDatabase = {
   async addMember(name: string, password?: string, avatarColor?: string, avatarLetter?: string, avatarIcon?: string): Promise<any> {
     const data = await fetchJSON('/api/members', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, password, avatarColor, avatarLetter, avatarIcon })
     });
+    if (data.token) {
+      setAuthToken(data.token);
+    }
     syncEngine.pollSync();
     return data;
   },
@@ -211,18 +274,22 @@ export const MealDatabase = {
   async loginMember(name: string, password?: string): Promise<any> {
     const resp = await fetchJSON('/api/members/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, password })
     });
-    return resp; // returns { success: true, member }
+    if (resp.token) {
+      setAuthToken(resp.token);
+    }
+    return resp; // returns { success: true, member, token }
   },
 
   async updateMember(memberId: string, updates: Partial<Member>): Promise<any> {
     const resp = await fetchJSON(`/api/members/${memberId}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updates)
     });
+    if (resp.token) {
+      setAuthToken(resp.token);
+    }
     syncEngine.pollSync();
     return resp;
   },
@@ -234,6 +301,15 @@ export const MealDatabase = {
     syncEngine.pollSync();
   },
 
+  // Image Upload helper
+  async uploadImage(base64DataUrl: string): Promise<string> {
+    const resp = await fetchJSON('/api/upload-image', {
+      method: 'POST',
+      body: JSON.stringify({ image: base64DataUrl })
+    });
+    return resp.url;
+  },
+
   // Dishes real-time subscriptions
   subscribeDishes(callback: (dishes: Dish[]) => void) {
     return syncEngine.subscribeDishes(callback);
@@ -242,7 +318,6 @@ export const MealDatabase = {
   async addDish(dish: Omit<Dish, 'id' | 'createdAt'>): Promise<string> {
     const savedDish = await fetchJSON('/api/dishes', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(dish)
     });
     syncEngine.pollSync();
@@ -252,7 +327,6 @@ export const MealDatabase = {
   async updateDish(dishId: string, updates: Partial<Omit<Dish, 'id' | 'createdAt'>>): Promise<void> {
     await fetchJSON(`/api/dishes/${dishId}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updates)
     });
     syncEngine.pollSync();
@@ -271,7 +345,6 @@ export const MealDatabase = {
   async rateDish(dishId: string, memberName: string, score: number): Promise<void> {
     await fetchJSON('/api/ratings', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ dishId, memberName, score })
     });
     syncEngine.pollSync();
@@ -285,7 +358,6 @@ export const MealDatabase = {
   async addPlannedMeal(planned: Omit<PlannedMeal, 'id' | 'createdAt'>): Promise<string> {
     const savedMeal = await fetchJSON('/api/planned_meals', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(planned)
     });
     syncEngine.pollSync();
@@ -305,7 +377,6 @@ export const MealDatabase = {
   async addShoppingItems(items: any | any[]): Promise<void> {
     await fetchJSON('/api/shopping_list', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(items)
     });
     syncEngine.pollSync();
@@ -314,7 +385,6 @@ export const MealDatabase = {
   async updateShoppingItem(id: string, updates: any): Promise<void> {
     await fetchJSON(`/api/shopping_list/${id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updates)
     });
     syncEngine.pollSync();
@@ -328,7 +398,6 @@ export const MealDatabase = {
   async clearShoppingList(type: 'completed' | 'all'): Promise<void> {
     await fetchJSON('/api/shopping_list/clear', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type })
     });
     syncEngine.pollSync();

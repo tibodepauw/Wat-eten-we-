@@ -25,7 +25,7 @@ import { ChefHat, List, Plus, Settings, UserCheck, Calendar as CalendarIcon, Sho
 import { motion, AnimatePresence } from 'motion/react';
 
 import { appTheme } from './theme';
-import { MealDatabase } from './lib/db';
+import { MealDatabase, setAuthToken } from './lib/db';
 import { Dish, Rating, Member, TabValue, PlannedMeal } from './types';
 
 // Child components
@@ -69,6 +69,7 @@ export default function App() {
   const handleLogout = () => {
     setActiveProfile(null);
     localStorage.removeItem('we_active_user');
+    setAuthToken(null);
     setActiveTab('home');
   };
 

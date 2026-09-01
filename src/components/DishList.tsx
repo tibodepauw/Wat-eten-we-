@@ -220,7 +220,8 @@ export default function DishList({ dishes, ratingsMap, members, activeProfile }:
     setEditError('');
     try {
       const compressedDataUrl = await compressImage(file, 1024, 0.75);
-      setEditImageUrl(compressedDataUrl);
+      const serverImageUrl = await MealDatabase.uploadImage(compressedDataUrl);
+      setEditImageUrl(serverImageUrl);
     } catch (err: any) {
       console.error(err);
       setEditError('Er is een fout opgetreden bij het verwerken van de afbeelding.');
@@ -1326,7 +1327,8 @@ export default function DishList({ dishes, ratingsMap, members, activeProfile }:
                           setEditError('');
                           try {
                             const compressedDataUrl = await compressImage(file, 1024, 0.75);
-                            setEditImageUrl(compressedDataUrl);
+                            const serverImageUrl = await MealDatabase.uploadImage(compressedDataUrl);
+                            setEditImageUrl(serverImageUrl);
                           } catch (err) {
                             console.error(err);
                             setEditError('Fout bij het verwerken van de afbeelding.');

@@ -1227,6 +1227,13 @@
       "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.427Z",
       "addedBy": "Notion Import"
+    },
+    {
+      "name": "Test Pasta Pesto",
+      "cuisine": "Italiaans",
+      "prepTime": 20,
+      "id": "7c4f950a-eef3-4959-942e-782960307d16",
+      "createdAt": "2026-09-01T12:58:53.585Z"
     }
   ],
   "ratings": {
@@ -1562,6 +1569,9 @@
       "Mama": 9,
       "Tibo": 8.9,
       "Briek": 8.8
+    },
+    "7c4f950a-eef3-4959-942e-782960307d16": {
+      "Papa": 9
     }
   },
   "planned_meals": [],

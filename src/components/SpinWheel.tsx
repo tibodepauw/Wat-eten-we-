@@ -201,7 +201,7 @@ export default function SpinWheel({ dishes, ratingsMap, plannedMeals, onCelebrat
     }
     const sum = dishRatings.reduce((acc, r) => acc + r.score, 0);
     const avg = sum / dishRatings.length;
-    return { score: avg.toFixed(1) + ' ★', weight: avg, numScore: avg };
+    return { score: avg.toFixed(1) + ' / 10', weight: avg, numScore: avg };
   };
 
   const weightedDishes = activeDishesForWheel.map((dish) => {

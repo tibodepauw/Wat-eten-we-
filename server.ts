@@ -3,29 +3,118 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
 import { createServer as createViteServer } from 'vite';
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
-// Enable JSON parsing with a limit of 15MB for base64 image uploads
+// Enable reverse proxy trust
+app.set('trust proxy', 1);
+
+// Enable JSON parsing with reasonable body limit
 app.use(express.json({ limit: '15mb' }));
 
 const DB_DIR = path.join(process.cwd(), 'data');
 const DB_FILE = path.join(DB_DIR, 'db.json');
+const UPLOADS_DIR = path.join(DB_DIR, 'uploads');
 
-// Password hashing helpers
-function hashPassword(password: string): string {
-  const salt = crypto.randomBytes(16).toString('hex');
-  const hash = crypto.scryptSync(password.normalize(), salt, 64).toString('hex');
-  return `scrypt:${salt}:${hash}`;
+// Ensure directories exist
+if (!fs.existsSync(DB_DIR)) {
+  fs.mkdirSync(DB_DIR, { recursive: true });
+}
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 }
 
-function verifyPassword(password: string, storedHash: string): boolean {
+// Serve uploaded images statically
+app.use('/uploads', express.static(UPLOADS_DIR));
+
+// Session secret generation / persistence
+const SECRET_FILE = path.join(DB_DIR, '.session_secret');
+let SESSION_SECRET = process.env.SESSION_SECRET || '';
+if (!SESSION_SECRET) {
+  if (fs.existsSync(SECRET_FILE)) {
+    SESSION_SECRET = fs.readFileSync(SECRET_FILE, 'utf-8').trim();
+  } else {
+    SESSION_SECRET = crypto.randomBytes(32).toString('hex');
+    try {
+      fs.writeFileSync(SECRET_FILE, SESSION_SECRET, 'utf-8');
+    } catch {
+      // Ignore if write fails
+    }
+  }
+}
+
+// Token generation and verification
+function createToken(payload: { id: string; name: string }): string {
+  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+  const data = Buffer.from(JSON.stringify({ ...payload, iat: Date.now() })).toString('base64url');
+  const signature = crypto.createHmac('sha256', SESSION_SECRET).update(`${header}.${data}`).digest('base64url');
+  return `${header}.${data}.${signature}`;
+}
+
+function verifyToken(token: string): { id: string; name: string } | null {
+  if (!token || typeof token !== 'string') return null;
+  const parts = token.split('.');
+  if (parts.length !== 3) return null;
+  const [header, data, signature] = parts;
+  const expectedSignature = crypto.createHmac('sha256', SESSION_SECRET).update(`${header}.${data}`).digest('base64url');
+  if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(Buffer.from(data, 'base64url').toString('utf-8'));
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+// Authentication middleware
+interface AuthenticatedRequest extends Request {
+  user?: { id: string; name: string };
+}
+
+function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
+  const authHeader = req.headers.authorization || (req.headers['x-auth-token'] as string);
+  let token = '';
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.substring(7).trim();
+  } else if (authHeader) {
+    token = authHeader.trim();
+  }
+
+  if (!token) {
+    res.status(401).json({ error: 'Geen geldige autorisatie gevonden. Log opnieuw in.' });
+    return;
+  }
+
+  const user = verifyToken(token);
+  if (!user) {
+    res.status(401).json({ error: 'Sessie is verlopen of ongeldig. Log opnieuw in.' });
+    return;
+  }
+
+  req.user = user;
+  next();
+}
+
+// Password hashing helpers (Asynchronous)
+async function hashPasswordAsync(password: string): Promise<string> {
+  const salt = crypto.randomBytes(16);
+  return new Promise((resolve, reject) => {
+    crypto.scrypt(password.normalize(), salt, 64, (err, derivedKey) => {
+      if (err) return reject(err);
+      resolve(`scrypt:${salt.toString('hex')}:${derivedKey.toString('hex')}`);
+    });
+  });
+}
+
+async function verifyPasswordAsync(password: string, storedHash: string): Promise<boolean> {
   if (!storedHash) return false;
   if (!storedHash.startsWith('scrypt:')) {
     // Legacy plaintext support for automatic migration
@@ -34,16 +123,31 @@ function verifyPassword(password: string, storedHash: string): boolean {
   const parts = storedHash.split(':');
   if (parts.length !== 3) return false;
   const [, salt, hash] = parts;
-  try {
-    const testHash = crypto.scryptSync(password.normalize(), salt, 64).toString('hex');
-    return crypto.timingSafeEqual(Buffer.from(hash, 'hex'), Buffer.from(testHash, 'hex'));
-  } catch {
-    return false;
-  }
+
+  return new Promise((resolve) => {
+    const saltBuf = Buffer.from(salt, 'hex');
+    crypto.scrypt(password.normalize(), saltBuf, 64, (err, derivedKey) => {
+      if (err) return resolve(false);
+      try {
+        const matches = crypto.timingSafeEqual(Buffer.from(hash, 'hex'), derivedKey);
+        resolve(matches);
+      } catch {
+        resolve(false);
+      }
+    });
+  });
 }
 
-// In-memory rate limiting for login attempts (10 attempts per minute per IP)
+// Synchronous helper for initial seed only
+function hashPasswordSync(password: string): string {
+  const salt = crypto.randomBytes(16);
+  const hash = crypto.scryptSync(password.normalize(), salt, 64).toString('hex');
+  return `scrypt:${salt.toString('hex')}:${hash}`;
+}
+
+// In-memory rate limiting for login attempts with automatic memory pruning
 const loginAttempts = new Map<string, { count: number; resetAt: number }>();
+
 function checkLoginRateLimit(ip: string): boolean {
   const now = Date.now();
   const entry = loginAttempts.get(ip);
@@ -58,13 +162,23 @@ function checkLoginRateLimit(ip: string): boolean {
   return true;
 }
 
+// Periodically clean up expired entries every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of loginAttempts.entries()) {
+    if (now > entry.resetAt) {
+      loginAttempts.delete(ip);
+    }
+  }
+}, 5 * 60 * 1000);
+
 // Default initial state
 const DEFAULT_DB = {
   members: [
-    { id: 'papa', name: 'Papa', password: hashPassword('papa'), avatarColor: '#8F4E00', avatarLetter: 'P', avatarIcon: 'smile', createdAt: new Date().toISOString() },
-    { id: 'mama', name: 'Mama', password: hashPassword('mama'), avatarColor: '#5a7862', avatarLetter: 'M', avatarIcon: 'heart', createdAt: new Date().toISOString() },
-    { id: 'tibo', name: 'Tibo', password: hashPassword('tibo'), avatarColor: '#f28f3b', avatarLetter: 'T', avatarIcon: 'star', createdAt: new Date().toISOString() },
-    { id: 'briek', name: 'Briek', password: hashPassword('briek'), avatarColor: '#9b59b6', avatarLetter: 'B', avatarIcon: 'crown', createdAt: new Date().toISOString() }
+    { id: 'papa', name: 'Papa', password: hashPasswordSync('papa'), avatarColor: '#8F4E00', avatarLetter: 'P', avatarIcon: 'smile', createdAt: new Date().toISOString() },
+    { id: 'mama', name: 'Mama', password: hashPasswordSync('mama'), avatarColor: '#5a7862', avatarLetter: 'M', avatarIcon: 'heart', createdAt: new Date().toISOString() },
+    { id: 'tibo', name: 'Tibo', password: hashPasswordSync('tibo'), avatarColor: '#f28f3b', avatarLetter: 'T', avatarIcon: 'star', createdAt: new Date().toISOString() },
+    { id: 'briek', name: 'Briek', password: hashPasswordSync('briek'), avatarColor: '#9b59b6', avatarLetter: 'B', avatarIcon: 'crown', createdAt: new Date().toISOString() }
   ],
   dishes: [
     {
@@ -104,7 +218,7 @@ const DEFAULT_DB = {
         { name: 'Ui', amount: '1 stuk', category: 'Groenten & Fruit' },
         { name: 'Parmezaanse kaas', amount: '100g', category: 'Zuivel' }
       ],
-      recipe: '1. Kook de spaghetti volgens de verpakking al dente.\n2. Fruit ui en knoflook in olijfol.\n3. Voeg gehakt toe en rul het bruin.\n4. Voeg fijngesneden wortel, bleekselderij en tomatenpuree toe.\n5. Voeg gepelde tomaten en Italiaanse kruiden toe.\n6. Laat 30 minuten sudderen.\n7. Bestrooi met Parmezaanse kaas.',
+      recipe: '1. Kook de spaghetti volgens de verpakking al dente.\n2. Fruit ui en knoflook in olijfolie.\n3. Voeg gehakt toe en rul het bruin.\n4. Voeg fijngesneden wortel, bleekselderij en tomatenpuree toe.\n5. Voeg gepelde tomaten en Italiaanse kruiden toe.\n6. Laat 30 minuten sudderen.\n7. Bestrooi met Parmezaanse kaas.',
       createdAt: new Date().toISOString(),
       addedBy: 'Mama'
     },
@@ -158,92 +272,182 @@ const DEFAULT_DB = {
   shopping_list: []
 };
 
-// Helper: Read database with automatic legacy migration
-function readDB() {
+// In-Memory Database Cache with Serialized Async Write Queue
+let memoryDB: any = null;
+let writeQueue: Promise<void> = Promise.resolve();
+
+function initDatabase() {
   try {
-    if (!fs.existsSync(DB_DIR)) {
-      fs.mkdirSync(DB_DIR, { recursive: true });
-    }
     if (!fs.existsSync(DB_FILE)) {
-      writeDB(DEFAULT_DB);
-      return DEFAULT_DB;
+      memoryDB = JSON.parse(JSON.stringify(DEFAULT_DB));
+      const tempFile = path.join(DB_DIR, `db.json.${crypto.randomUUID()}.tmp`);
+      fs.writeFileSync(tempFile, JSON.stringify(memoryDB, null, 2), 'utf-8');
+      fs.renameSync(tempFile, DB_FILE);
+      return;
     }
+
     const content = fs.readFileSync(DB_FILE, 'utf-8');
-    const parsed = JSON.parse(content);
+    memoryDB = JSON.parse(content);
     let modified = false;
 
-    if (parsed.members && Array.isArray(parsed.members)) {
-      parsed.members = parsed.members.map((m: any) => {
-        let updated = false;
-        // Migrate plaintext passwords to scrypt hashes
-        if (!m.password) {
-          m.password = hashPassword(m.name.toLowerCase());
-          updated = true;
-        } else if (!m.password.startsWith('scrypt:')) {
-          m.password = hashPassword(m.password);
-          updated = true;
-        }
-
-        if (!m.avatarColor) {
-          const colors = ['#8F4E00', '#5a7862', '#f28f3b', '#9b59b6', '#3498db', '#1abc9c', '#e67e22'];
-          let hash = 0;
-          for (let i = 0; i < m.name.length; i++) {
-            hash = m.name.charCodeAt(i) + ((hash << 5) - hash);
-          }
-          const index = Math.abs(hash) % colors.length;
-          m.avatarColor = colors[index];
-          updated = true;
-        }
-        if (!m.avatarLetter) {
-          m.avatarLetter = (m.name || 'G').charAt(0).toUpperCase();
-          updated = true;
-        }
-        if (m.avatarIcon === undefined) {
-          m.avatarIcon = '';
-          updated = true;
-        }
-        if (updated) {
+    // Migrate passwords
+    if (memoryDB.members && Array.isArray(memoryDB.members)) {
+      memoryDB.members = memoryDB.members.map((m: any) => {
+        if (!m.password || !m.password.startsWith('scrypt:')) {
+          m.password = hashPasswordSync(m.password || m.name.toLowerCase());
           modified = true;
         }
         return m;
       });
     }
 
+    // Migrate any base64 images to uploads folder
+    if (memoryDB.dishes && Array.isArray(memoryDB.dishes)) {
+      memoryDB.dishes.forEach((d: any) => {
+        if (d.imageUrl && typeof d.imageUrl === 'string' && d.imageUrl.startsWith('data:image/')) {
+          try {
+            const matches = d.imageUrl.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/);
+            if (matches) {
+              const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1];
+              const filename = `dish_${crypto.randomUUID()}.${ext}`;
+              const filePath = path.join(UPLOADS_DIR, filename);
+              fs.writeFileSync(filePath, Buffer.from(matches[2], 'base64'));
+              d.imageUrl = `/uploads/${filename}`;
+              modified = true;
+            }
+          } catch (e) {
+            console.error('Error migrating base64 image for dish', d.id, e);
+          }
+        }
+      });
+    }
+
     if (modified) {
-      writeDB(parsed);
+      const tempFile = path.join(DB_DIR, `db.json.${crypto.randomUUID()}.tmp`);
+      fs.writeFileSync(tempFile, JSON.stringify(memoryDB, null, 2), 'utf-8');
+      fs.renameSync(tempFile, DB_FILE);
     }
-    return parsed;
   } catch (error) {
-    console.error('Error reading JSON DB, fallback to memory', error);
-    return DEFAULT_DB;
+    console.error('Error initializing DB from file, falling back to default:', error);
+    memoryDB = JSON.parse(JSON.stringify(DEFAULT_DB));
   }
 }
 
-// Helper: Atomic write database
-function writeDB(data: any) {
-  try {
-    if (!fs.existsSync(DB_DIR)) {
-      fs.mkdirSync(DB_DIR, { recursive: true });
+// Asynchronous Atomic Database Persistence
+function persistDB(): Promise<void> {
+  const snapshot = JSON.stringify(memoryDB, null, 2);
+  writeQueue = writeQueue.then(async () => {
+    try {
+      const tempFile = path.join(DB_DIR, `db.json.${crypto.randomUUID()}.tmp`);
+      await fs.promises.writeFile(tempFile, snapshot, 'utf-8');
+      await fs.promises.rename(tempFile, DB_FILE);
+    } catch (err) {
+      console.error('Error writing database to disk:', err);
     }
-    const tempFile = path.join(DB_DIR, `db.json.${crypto.randomUUID()}.tmp`);
-    fs.writeFileSync(tempFile, JSON.stringify(data, null, 2), 'utf-8');
-    fs.renameSync(tempFile, DB_FILE);
-  } catch (error) {
-    console.error('Error writing to JSON DB', error);
-  }
+  });
+  return writeQueue;
 }
 
-// Ensure database is initialized
-readDB();
+// Initialize memory database at startup
+initDatabase();
+
+// --- Smart Amount Merging Utility ---
+function mergeAmounts(a: string, b: string): string {
+  a = (a || '').trim();
+  b = (b || '').trim();
+  if (!a) return b;
+  if (!b) return a;
+
+  const regex = /^([\d.,]+)\s*(.*)$/;
+  const matchA = a.match(regex);
+  const matchB = b.match(regex);
+
+  if (matchA && matchB) {
+    const numA = parseFloat(matchA[1].replace(',', '.'));
+    const numB = parseFloat(matchB[1].replace(',', '.'));
+    const unitA = matchA[2].trim().toLowerCase();
+    const unitB = matchB[2].trim().toLowerCase();
+
+    if (!isNaN(numA) && !isNaN(numB)) {
+      if (unitA === unitB) {
+        const sum = numA + numB;
+        const formattedSum = Number(sum.toFixed(2));
+        return matchA[2].trim() ? `${formattedSum} ${matchA[2].trim()}` : `${formattedSum}`;
+      }
+
+      // Weight conversions: kg & g
+      const isKgA = unitA === 'kg' || unitA === 'kilo';
+      const isKgB = unitB === 'kg' || unitB === 'kilo';
+      const isGA = unitA === 'g' || unitA === 'gr' || unitA === 'gram';
+      const isGB = unitB === 'g' || unitB === 'gr' || unitB === 'gram';
+
+      if ((isKgA || isGA) && (isKgB || isGB)) {
+        const totalGrams = (isKgA ? numA * 1000 : numA) + (isKgB ? numB * 1000 : numB);
+        if (totalGrams >= 1000 && totalGrams % 100 === 0) {
+          return `${Number((totalGrams / 1000).toFixed(2))} kg`;
+        }
+        return `${Number(totalGrams.toFixed(2))} g`;
+      }
+
+      // Volume conversions: l & ml
+      const isLA = unitA === 'l' || unitA === 'liter';
+      const isLB = unitB === 'l' || unitB === 'liter';
+      const isMlA = unitA === 'ml' || unitA === 'milliliter';
+      const isMlB = unitB === 'ml' || unitB === 'milliliter';
+
+      if ((isLA || isMlA) && (isLB || isMlB)) {
+        const totalMl = (isLA ? numA * 1000 : numA) + (isLB ? numB * 1000 : numB);
+        if (totalMl >= 1000 && totalMl % 100 === 0) {
+          return `${Number((totalMl / 1000).toFixed(2))} l`;
+        }
+        return `${Number(totalMl.toFixed(2))} ml`;
+      }
+
+      return `${a} + ${b}`;
+    }
+  }
+
+  if (a.toLowerCase() === b.toLowerCase()) {
+    return a;
+  }
+  return `${a} + ${b}`;
+}
 
 // --- API Endpoints ---
 
-// GET: Unified sync snapshot for real-time synchronization
-app.get('/api/sync', (req, res) => {
-  const db = readDB();
-  const publicMembers = (db.members || []).map(({ password, ...rest }: any) => rest);
+// POST: Dedicated Image Upload Endpoint
+app.post('/api/upload-image', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { image } = req.body;
+    if (!image || typeof image !== 'string') {
+      res.status(400).json({ error: 'Afbeeldingsdata is verplicht.' });
+      return;
+    }
 
-  const rawRatings = db.ratings || {};
+    const matches = image.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/);
+    if (!matches) {
+      res.status(400).json({ error: 'Ongeldig afbeeldingsformaat (data-url vereist).' });
+      return;
+    }
+
+    const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1];
+    const filename = `dish_${crypto.randomUUID()}.${ext}`;
+    const filePath = path.join(UPLOADS_DIR, filename);
+    const buffer = Buffer.from(matches[2], 'base64');
+
+    await fs.promises.writeFile(filePath, buffer);
+    res.json({ url: `/uploads/${filename}` });
+  } catch (error) {
+    console.error('Error handling image upload:', error);
+    res.status(500).json({ error: 'Fout bij het opslaan van de afbeelding.' });
+  }
+});
+
+// GET: Unified snapshot for real-time synchronization
+app.get('/api/sync', (_req: Request, res: Response) => {
+  const publicMembers = (memoryDB.members || []).map(({ password, ...rest }: any) => rest);
+
+  const rawRatings = memoryDB.ratings || {};
   const formattedRatings: { [dishId: string]: any[] } = {};
   Object.keys(rawRatings).forEach((dishId) => {
     formattedRatings[dishId] = Object.keys(rawRatings[dishId]).map((memberName) => ({
@@ -256,58 +460,65 @@ app.get('/api/sync', (req, res) => {
 
   res.json({
     members: publicMembers,
-    dishes: db.dishes || [],
+    dishes: memoryDB.dishes || [],
     ratings: formattedRatings,
-    planned_meals: db.planned_meals || [],
-    shopping_list: db.shopping_list || [],
+    planned_meals: memoryDB.planned_meals || [],
+    shopping_list: memoryDB.shopping_list || [],
     timestamp: Date.now()
   });
 });
 
-// GET: All members (excluding passwords for safety)
-app.get('/api/members', (req, res) => {
-  const db = readDB();
-  const publicMembers = (db.members || []).map(({ password, ...rest }: any) => rest);
+// GET: All members (sanitized)
+app.get('/api/members', (_req: Request, res: Response) => {
+  const publicMembers = (memoryDB.members || []).map(({ password, ...rest }: any) => rest);
   res.json(publicMembers);
 });
 
-// POST: Add new member
-app.post('/api/members', (req, res) => {
+// POST: Add new member (Self-service signup)
+app.post('/api/members', async (req: Request, res: Response) => {
   const { name, password, avatarColor, avatarLetter, avatarIcon } = req.body;
-  if (!name || typeof name !== 'string') {
+  if (!name || typeof name !== 'string' || name.trim().length === 0) {
     res.status(400).json({ error: 'Naam is verplicht.' });
     return;
   }
-  const db = readDB();
-  const cleanId = name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+  const cleanName = name.trim();
+  if (cleanName.length > 20) {
+    res.status(400).json({ error: 'Naam mag maximaal 20 tekens zijn.' });
+    return;
+  }
 
-  if (!db.members) db.members = [];
+  if (!memoryDB.members) memoryDB.members = [];
 
-  const alreadyExists = db.members.some((m: any) => m.name.toLowerCase() === name.toLowerCase());
+  const alreadyExists = memoryDB.members.some((m: any) => m.name.toLowerCase() === cleanName.toLowerCase());
   if (alreadyExists) {
     res.status(400).json({ error: 'Dit gezinslid bestaat al!' });
     return;
   }
 
-  const rawPassword = password ? password.trim() : name.trim().toLowerCase();
+  const rawPassword = password ? password.trim() : cleanName.toLowerCase();
+  const hashedPassword = await hashPasswordAsync(rawPassword);
+  const cleanId = cleanName.toLowerCase().replace(/[^a-z0-9]/g, '_') || `user_${crypto.randomUUID().slice(0, 8)}`;
+
   const newMember = {
     id: cleanId,
-    name: name.trim(),
-    password: hashPassword(rawPassword),
+    name: cleanName,
+    password: hashedPassword,
     avatarColor: avatarColor || '#8F4E00',
-    avatarLetter: avatarLetter || name.trim().charAt(0).toUpperCase(),
+    avatarLetter: avatarLetter || cleanName.charAt(0).toUpperCase(),
     avatarIcon: avatarIcon || '',
     createdAt: new Date().toISOString()
   };
-  db.members.push(newMember);
-  writeDB(db);
+
+  memoryDB.members.push(newMember);
+  persistDB();
 
   const { password: _, ...publicMember } = newMember;
-  res.json(publicMember);
+  const token = createToken({ id: publicMember.id, name: publicMember.name });
+  res.json({ ...publicMember, token });
 });
 
 // POST: Login securely with rate limiting
-app.post('/api/members/login', (req, res) => {
+app.post('/api/members/login', async (req: Request, res: Response) => {
   const ip = req.ip || req.socket.remoteAddress || 'unknown';
   if (!checkLoginRateLimit(ip)) {
     res.status(429).json({ error: 'Te veel inlogpogingen. Probeer het over een minuut opnieuw.' });
@@ -319,193 +530,200 @@ app.post('/api/members/login', (req, res) => {
     res.status(400).json({ error: 'Naam en wachtwoord zijn verplicht.' });
     return;
   }
-  const db = readDB();
-  const member = (db.members || []).find((m: any) => m.name.toLowerCase() === name.trim().toLowerCase());
+
+  const member = (memoryDB.members || []).find((m: any) => m.name.toLowerCase() === name.trim().toLowerCase());
   if (!member) {
     res.status(404).json({ error: 'Gezinslid niet gevonden.' });
     return;
   }
 
-  const matches = verifyPassword(password.trim(), member.password || '');
+  const matches = await verifyPasswordAsync(password.trim(), member.password || '');
   if (!matches) {
     res.status(401).json({ error: 'Onjuist wachtwoord.' });
     return;
   }
 
   const { password: _, ...publicMember } = member;
-  res.json({ success: true, member: publicMember });
+  const token = createToken({ id: publicMember.id, name: publicMember.name });
+  res.json({ success: true, member: publicMember, token });
 });
 
 // PUT: Update member details
-app.put('/api/members/:id', (req, res) => {
+app.put('/api/members/:id', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
   const { name, password, avatarColor, avatarLetter, avatarIcon } = req.body;
-  const db = readDB();
 
-  if (!db.members) db.members = [];
+  if (!memoryDB.members) memoryDB.members = [];
 
-  const memberIdx = db.members.findIndex((m: any) => m.id === id);
+  const memberIdx = memoryDB.members.findIndex((m: any) => m.id === id);
   if (memberIdx === -1) {
     res.status(404).json({ error: 'Gezinslid niet gevonden.' });
     return;
   }
 
-  const oldMember = db.members[memberIdx];
+  const oldMember = memoryDB.members[memberIdx];
   const oldName = oldMember.name;
   const newName = name ? name.trim() : oldName;
 
   if (newName.toLowerCase() !== oldName.toLowerCase()) {
-    const nameTaken = db.members.some((m: any) => m.id !== id && m.name.toLowerCase() === newName.toLowerCase());
+    const nameTaken = memoryDB.members.some((m: any) => m.id !== id && m.name.toLowerCase() === newName.toLowerCase());
     if (nameTaken) {
       res.status(400).json({ error: 'Deze naam is al in gebruik.' });
       return;
     }
   }
 
-  const updatedPassword = password !== undefined && password.trim() !== ''
-    ? hashPassword(password.trim())
-    : oldMember.password;
+  let updatedPassword = oldMember.password;
+  if (password !== undefined && password.trim() !== '') {
+    updatedPassword = await hashPasswordAsync(password.trim());
+  }
 
   const updatedMember = {
     ...oldMember,
     name: newName,
-    id: newName.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+    id: newName.toLowerCase().replace(/[^a-z0-9]/g, '_') || oldMember.id,
     password: updatedPassword,
     avatarColor: avatarColor || oldMember.avatarColor,
     avatarLetter: avatarLetter || oldMember.avatarLetter,
     avatarIcon: avatarIcon !== undefined ? avatarIcon : oldMember.avatarIcon,
   };
 
-  db.members[memberIdx] = updatedMember;
+  memoryDB.members[memberIdx] = updatedMember;
 
+  // Consistent Cascade update across all datasets
   if (newName !== oldName) {
-    if (db.dishes && Array.isArray(db.dishes)) {
-      db.dishes.forEach((d: any) => {
+    if (memoryDB.dishes && Array.isArray(memoryDB.dishes)) {
+      memoryDB.dishes.forEach((d: any) => {
         if (d.addedBy === oldName) {
           d.addedBy = newName;
         }
       });
     }
-    if (db.ratings) {
-      Object.keys(db.ratings).forEach((dishId) => {
-        const dishRatings = db.ratings[dishId];
+    if (memoryDB.ratings) {
+      Object.keys(memoryDB.ratings).forEach((dishId) => {
+        const dishRatings = memoryDB.ratings[dishId];
         if (dishRatings && dishRatings[oldName] !== undefined) {
           dishRatings[newName] = dishRatings[oldName];
           delete dishRatings[oldName];
         }
       });
     }
-    if (db.shopping_list && Array.isArray(db.shopping_list)) {
-      db.shopping_list.forEach((item: any) => {
+    if (memoryDB.shopping_list && Array.isArray(memoryDB.shopping_list)) {
+      memoryDB.shopping_list.forEach((item: any) => {
         if (item.addedBy === oldName) {
           item.addedBy = newName;
         }
       });
     }
+    if (memoryDB.planned_meals && Array.isArray(memoryDB.planned_meals)) {
+      memoryDB.planned_meals.forEach((meal: any) => {
+        if (meal.addedBy === oldName) {
+          meal.addedBy = newName;
+        }
+      });
+    }
   }
 
-  writeDB(db);
+  persistDB();
 
   const { password: _, ...publicMember } = updatedMember;
-  res.json({ success: true, member: publicMember });
+  const token = createToken({ id: publicMember.id, name: publicMember.name });
+  res.json({ success: true, member: publicMember, token });
 });
 
 // DELETE: Delete a family member
-app.delete('/api/members/:id', (req, res) => {
+app.delete('/api/members/:id', requireAuth, (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
-  const db = readDB();
-  if (!db.members) db.members = [];
+  if (!memoryDB.members) memoryDB.members = [];
 
-  const memberToDelete = db.members.find((m: any) => m.id === id);
+  const memberToDelete = memoryDB.members.find((m: any) => m.id === id);
   if (!memberToDelete) {
     res.status(404).json({ error: 'Gezinslid niet gevonden.' });
     return;
   }
 
-  if (db.members.length <= 1) {
+  if (memoryDB.members.length <= 1) {
     res.status(400).json({ error: 'Er moet minstens één gezinslid bewaard blijven.' });
     return;
   }
 
   const memberName = memberToDelete.name;
-  db.members = db.members.filter((m: any) => m.id !== id);
+  memoryDB.members = memoryDB.members.filter((m: any) => m.id !== id);
 
-  if (db.ratings) {
-    Object.keys(db.ratings).forEach((dishId) => {
-      if (db.ratings[dishId] && db.ratings[dishId][memberName] !== undefined) {
-        delete db.ratings[dishId][memberName];
+  if (memoryDB.ratings) {
+    Object.keys(memoryDB.ratings).forEach((dishId) => {
+      if (memoryDB.ratings[dishId] && memoryDB.ratings[dishId][memberName] !== undefined) {
+        delete memoryDB.ratings[dishId][memberName];
       }
     });
   }
 
-  writeDB(db);
+  persistDB();
   res.json({ success: true });
 });
 
 // GET: All dishes
-app.get('/api/dishes', (req, res) => {
-  const db = readDB();
-  res.json(db.dishes || []);
+app.get('/api/dishes', (_req: Request, res: Response) => {
+  res.json(memoryDB.dishes || []);
 });
 
 // POST: Add new dish
-app.post('/api/dishes', (req, res) => {
+app.post('/api/dishes', requireAuth, (req: AuthenticatedRequest, res: Response) => {
   const dish = req.body;
-  if (!dish || !dish.name) {
-    res.status(400).json({ error: 'Naam is verplicht.' });
+  if (!dish || !dish.name || typeof dish.name !== 'string' || dish.name.trim().length === 0) {
+    res.status(400).json({ error: 'Naam van het gerecht is verplicht.' });
     return;
   }
-  const db = readDB();
+
   const generatedId = crypto.randomUUID();
   const newDish = {
     ...dish,
+    name: dish.name.trim(),
     id: generatedId,
     createdAt: new Date().toISOString()
   };
-  if (!db.dishes) db.dishes = [];
-  db.dishes.push(newDish);
-  writeDB(db);
+
+  if (!memoryDB.dishes) memoryDB.dishes = [];
+  memoryDB.dishes.push(newDish);
+  persistDB();
   res.json(newDish);
 });
 
-// DELETE: Delete dish
-app.delete('/api/dishes/:id', (req, res) => {
-  const { id } = req.params;
-  const db = readDB();
-  db.dishes = (db.dishes || []).filter((d: any) => d.id !== id);
-  if (db.ratings) {
-    delete db.ratings[id];
-  }
-  db.planned_meals = (db.planned_meals || []).filter((m: any) => m.dishId !== id);
-  writeDB(db);
-  res.json({ success: true });
-});
-
 // PUT: Update an existing dish
-app.put('/api/dishes/:id', (req, res) => {
+app.put('/api/dishes/:id', requireAuth, (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
   const updates = req.body;
-  const db = readDB();
-  if (!db.dishes) db.dishes = [];
+  if (!memoryDB.dishes) memoryDB.dishes = [];
 
-  const idx = db.dishes.findIndex((d: any) => d.id === id);
+  const idx = memoryDB.dishes.findIndex((d: any) => d.id === id);
   if (idx !== -1) {
-    db.dishes[idx] = {
-      ...db.dishes[idx],
+    memoryDB.dishes[idx] = {
+      ...memoryDB.dishes[idx],
       ...updates,
-      id // Prevent id from being overwritten
+      id // Protect ID
     };
-    writeDB(db);
-    res.json(db.dishes[idx]);
+    persistDB();
+    res.json(memoryDB.dishes[idx]);
   } else {
     res.status(404).json({ error: 'Gerecht niet gevonden.' });
   }
 });
 
-// GET: All ratings formatted as { [dishId]: Rating[] }
-app.get('/api/ratings', (req, res) => {
-  const db = readDB();
-  const rawRatings = db.ratings || {};
+// DELETE: Delete dish
+app.delete('/api/dishes/:id', requireAuth, (req: AuthenticatedRequest, res: Response) => {
+  const { id } = req.params;
+  memoryDB.dishes = (memoryDB.dishes || []).filter((d: any) => d.id !== id);
+  if (memoryDB.ratings) {
+    delete memoryDB.ratings[id];
+  }
+  memoryDB.planned_meals = (memoryDB.planned_meals || []).filter((m: any) => m.dishId !== id);
+  persistDB();
+  res.json({ success: true });
+});
+
+// GET: All ratings
+app.get('/api/ratings', (_req: Request, res: Response) => {
+  const rawRatings = memoryDB.ratings || {};
   const formattedRatings: { [dishId: string]: any[] } = {};
 
   Object.keys(rawRatings).forEach((dishId) => {
@@ -520,107 +738,71 @@ app.get('/api/ratings', (req, res) => {
   res.json(formattedRatings);
 });
 
-// POST: Add or update custom member rating
-app.post('/api/ratings', (req, res) => {
+// POST: Add or update custom member rating (with strict validation)
+app.post('/api/ratings', requireAuth, (req: AuthenticatedRequest, res: Response) => {
   const { dishId, memberName, score } = req.body;
   if (!dishId || !memberName || score === undefined) {
     res.status(400).json({ error: 'dishId, memberName en score zijn verplicht.' });
     return;
   }
-  const db = readDB();
-  if (!db.ratings) db.ratings = {};
-  if (!db.ratings[dishId]) db.ratings[dishId] = {};
 
-  db.ratings[dishId][memberName] = Number(score);
-  writeDB(db);
+  const numScore = Number(score);
+  if (!Number.isFinite(numScore) || numScore < 1 || numScore > 10) {
+    res.status(400).json({ error: 'Score moet een getal zijn tussen 1 en 10.' });
+    return;
+  }
+
+  if (!memoryDB.ratings) memoryDB.ratings = {};
+  if (!memoryDB.ratings[dishId]) memoryDB.ratings[dishId] = {};
+
+  memoryDB.ratings[dishId][memberName] = numScore;
+  persistDB();
   res.json({ success: true });
 });
 
 // GET: All planned meals
-app.get('/api/planned_meals', (req, res) => {
-  const db = readDB();
-  res.json(db.planned_meals || []);
+app.get('/api/planned_meals', (_req: Request, res: Response) => {
+  res.json(memoryDB.planned_meals || []);
 });
 
 // POST: Schedule a meal
-app.post('/api/planned_meals', (req, res) => {
+app.post('/api/planned_meals', requireAuth, (req: AuthenticatedRequest, res: Response) => {
   const meal = req.body;
   if (!meal || !meal.dishId || !meal.plannedDate) {
     res.status(400).json({ error: 'dishId en plannedDate zijn verplicht.' });
     return;
   }
-  const db = readDB();
+
   const generatedId = crypto.randomUUID();
   const newMeal = {
     ...meal,
     id: generatedId,
     createdAt: new Date().toISOString()
   };
-  if (!db.planned_meals) db.planned_meals = [];
-  db.planned_meals.push(newMeal);
-  writeDB(db);
+
+  if (!memoryDB.planned_meals) memoryDB.planned_meals = [];
+  memoryDB.planned_meals.push(newMeal);
+  persistDB();
   res.json(newMeal);
 });
 
 // DELETE: Delete a scheduled meal
-app.delete('/api/planned_meals/:id', (req, res) => {
+app.delete('/api/planned_meals/:id', requireAuth, (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
-  const db = readDB();
-  db.planned_meals = (db.planned_meals || []).filter((m: any) => m.id !== id);
-  writeDB(db);
+  memoryDB.planned_meals = (memoryDB.planned_meals || []).filter((m: any) => m.id !== id);
+  persistDB();
   res.json({ success: true });
 });
 
-// --- Shopping List Endpoints ---
-
 // GET: Fetch all shopping list items
-app.get('/api/shopping_list', (req, res) => {
-  const db = readDB();
-  res.json(db.shopping_list || []);
+app.get('/api/shopping_list', (_req: Request, res: Response) => {
+  res.json(memoryDB.shopping_list || []);
 });
 
 // POST: Add new item(s) to shopping list
-app.post('/api/shopping_list', (req, res) => {
+app.post('/api/shopping_list', requireAuth, (req: AuthenticatedRequest, res: Response) => {
   const body = req.body;
-  const db = readDB();
-  if (!db.shopping_list) db.shopping_list = [];
-
-  const mergeAmounts = (a: string, b: string): string => {
-    a = (a || '').trim();
-    b = (b || '').trim();
-    if (!a) return b;
-    if (!b) return a;
-
-    const regex = /^([\d.,]+)\s*(.*)$/;
-    const matchA = a.match(regex);
-    const matchB = b.match(regex);
-
-    if (matchA && matchB) {
-      const numA = parseFloat(matchA[1].replace(',', '.'));
-      const numB = parseFloat(matchB[1].replace(',', '.'));
-      const unitA = matchA[2].trim().toLowerCase();
-      const unitB = matchB[2].trim().toLowerCase();
-
-      if (!isNaN(numA) && !isNaN(numB)) {
-        if (unitA === unitB) {
-          const sum = numA + numB;
-          const formattedSum = Number(sum.toFixed(2));
-          return matchA[2].trim() ? `${formattedSum} ${matchA[2].trim()}` : `${formattedSum}`;
-        }
-        const gUnits = ['g', 'gr', 'gram'];
-        if (gUnits.includes(unitA) && gUnits.includes(unitB)) {
-          const sum = numA + numB;
-          return `${Number(sum.toFixed(2))} g`;
-        }
-        return `${a} + ${b}`;
-      }
-    }
-
-    if (a.toLowerCase() === b.toLowerCase()) {
-      return a;
-    }
-    return `${a} + ${b}`;
-  };
+  if (!memoryDB.shopping_list) memoryDB.shopping_list = [];
 
   const addSingleItem = (itemObj: any) => {
     const nameNorm = (itemObj.name || '').trim().toLowerCase();
@@ -628,20 +810,20 @@ app.post('/api/shopping_list', (req, res) => {
     const isCompleted = !!itemObj.completed;
 
     if (!isCompleted) {
-      const existingIndex = db.shopping_list.findIndex((item: any) =>
+      const existingIndex = memoryDB.shopping_list.findIndex((item: any) =>
         !item.completed &&
         (item.name || '').trim().toLowerCase() === nameNorm &&
         (item.category || 'Overig') === categoryVal
       );
 
       if (existingIndex !== -1) {
-        const existingItem = db.shopping_list[existingIndex];
+        const existingItem = memoryDB.shopping_list[existingIndex];
         const newAmount = mergeAmounts(existingItem.amount, itemObj.amount);
-        db.shopping_list[existingIndex] = {
+        memoryDB.shopping_list[existingIndex] = {
           ...existingItem,
           amount: newAmount
         };
-        return db.shopping_list[existingIndex];
+        return memoryDB.shopping_list[existingIndex];
       }
     }
 
@@ -652,16 +834,16 @@ app.post('/api/shopping_list', (req, res) => {
       amount: (itemObj.amount || '').trim(),
       category: categoryVal,
       completed: isCompleted,
-      addedBy: itemObj.addedBy || 'Systeem',
+      addedBy: itemObj.addedBy || req.user?.name || 'Systeem',
       createdAt: new Date().toISOString()
     };
-    db.shopping_list.push(newItem);
+    memoryDB.shopping_list.push(newItem);
     return newItem;
   };
 
   if (Array.isArray(body)) {
     const addedItems = body.map(item => addSingleItem(item));
-    writeDB(db);
+    persistDB();
     res.json(addedItems);
   } else {
     if (!body || !body.name) {
@@ -669,57 +851,55 @@ app.post('/api/shopping_list', (req, res) => {
       return;
     }
     const addedItem = addSingleItem(body);
-    writeDB(db);
+    persistDB();
     res.json(addedItem);
   }
 });
 
-// PUT: Modify an item
-app.put('/api/shopping_list/:id', (req, res) => {
+// PUT: Modify a shopping item
+app.put('/api/shopping_list/:id', requireAuth, (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
   const updates = req.body;
-  const db = readDB();
-  if (!db.shopping_list) db.shopping_list = [];
+  if (!memoryDB.shopping_list) memoryDB.shopping_list = [];
 
-  const index = db.shopping_list.findIndex((item: any) => item.id === id);
+  const index = memoryDB.shopping_list.findIndex((item: any) => item.id === id);
   if (index !== -1) {
-    db.shopping_list[index] = {
-      ...db.shopping_list[index],
-      ...updates
+    memoryDB.shopping_list[index] = {
+      ...memoryDB.shopping_list[index],
+      ...updates,
+      id // Protect ID
     };
-    writeDB(db);
-    res.json(db.shopping_list[index]);
+    persistDB();
+    res.json(memoryDB.shopping_list[index]);
   } else {
     res.status(404).json({ error: 'Item niet gevonden.' });
   }
 });
 
 // DELETE: Delete a shopping list item
-app.delete('/api/shopping_list/:id', (req, res) => {
+app.delete('/api/shopping_list/:id', requireAuth, (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
-  const db = readDB();
-  db.shopping_list = (db.shopping_list || []).filter((item: any) => item.id !== id);
-  writeDB(db);
+  memoryDB.shopping_list = (memoryDB.shopping_list || []).filter((item: any) => item.id !== id);
+  persistDB();
   res.json({ success: true });
 });
 
 // POST: Clear shopping list items (batch)
-app.post('/api/shopping_list/clear', (req, res) => {
+app.post('/api/shopping_list/clear', requireAuth, (req: AuthenticatedRequest, res: Response) => {
   const { type } = req.body;
-  const db = readDB();
-  if (!db.shopping_list) db.shopping_list = [];
+  if (!memoryDB.shopping_list) memoryDB.shopping_list = [];
 
   if (type === 'completed') {
-    db.shopping_list = db.shopping_list.filter((item: any) => !item.completed);
+    memoryDB.shopping_list = memoryDB.shopping_list.filter((item: any) => !item.completed);
   } else if (type === 'all') {
-    db.shopping_list = [];
+    memoryDB.shopping_list = [];
   } else {
     res.status(400).json({ error: 'Ongeldig type. Gebruik completed of all.' });
     return;
   }
 
-  writeDB(db);
-  res.json({ success: true, count: db.shopping_list.length });
+  persistDB();
+  res.json({ success: true, count: memoryDB.shopping_list.length });
 });
 
 // Start server
@@ -733,7 +913,7 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*', (req, res) => {
+    app.get('*', (_req: Request, res: Response) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }

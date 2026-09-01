@@ -163,7 +163,8 @@ export default function AddDishForm({ activeProfile, onSuccess }: AddDishFormPro
     setErrorText('');
     try {
       const compressedDataUrl = await compressImage(file, 1024, 0.75);
-      setImageUrl(compressedDataUrl);
+      const serverImageUrl = await MealDatabase.uploadImage(compressedDataUrl);
+      setImageUrl(serverImageUrl);
     } catch (err: any) {
       console.error(err);
       setErrorText('Er is een fout opgetreden bij het verwerken van de afbeelding.');
