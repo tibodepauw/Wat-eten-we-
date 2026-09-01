@@ -3,14 +3,21 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Dish, Rating, Member, PlannedMeal } from '../types';
+import { Dish, Rating, Member, PlannedMeal, ShoppingItem } from '../types';
 
-// Let's create a robust helper to check if we can reach the backend.
-// In our full-stack container, the backend will always be running.
 const fetchJSON = async (url: string, options?: RequestInit) => {
   const response = await fetch(url, options);
   if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
+    let errorMsg = `HTTP error: ${response.status}`;
+    try {
+      const errData = await response.json();
+      if (errData && errData.error) {
+        errorMsg = errData.error;
+      }
+    } catch {
+      // Ignore json parse error on non-json response
+    }
+    throw new Error(errorMsg);
   }
   return response.json();
 };
@@ -18,536 +25,312 @@ const fetchJSON = async (url: string, options?: RequestInit) => {
 export const isFirestoreFallback = true;
 export const db = null;
 
-// Clean standalone state sync engine with ultra-optimized active polling for real-time multiplayer feel!
-export const MealDatabase = {
-  // Members real-time subscriptions
-  subscribeMembers(callback: (members: Member[]) => void) {
-    let active = true;
-    let lastJSON = '';
+// Unified Central Sync Engine
+type Listener<T> = (data: T) => void;
 
-    const poll = async () => {
-      try {
-        const data = await fetchJSON('/api/members');
-        if (!active) return;
-        const serialized = JSON.stringify(data);
-        if (serialized !== lastJSON) {
-          lastJSON = serialized;
-          callback(data.map((m: any) => ({
+class SyncEngine {
+  private memberListeners = new Set<Listener<Member[]>>();
+  private dishesListeners = new Set<Listener<Dish[]>>();
+  private ratingsListeners = new Set<Listener<{ [dishId: string]: Rating[] }>>();
+  private plannedListeners = new Set<Listener<PlannedMeal[]>>();
+  private shoppingListeners = new Set<Listener<ShoppingItem[]>>();
+
+  private lastMembersJSON = '';
+  private lastDishesJSON = '';
+  private lastRatingsJSON = '';
+  private lastPlannedJSON = '';
+  private lastShoppingJSON = '';
+
+  private pollIntervalHandle: any = null;
+  private isPolling = false;
+
+  private startPollingIfNeeded() {
+    if (this.pollIntervalHandle) return;
+    this.pollSync();
+    this.pollIntervalHandle = setInterval(() => this.pollSync(), 2500);
+  }
+
+  private stopPollingIfEmpty() {
+    const total =
+      this.memberListeners.size +
+      this.dishesListeners.size +
+      this.ratingsListeners.size +
+      this.plannedListeners.size +
+      this.shoppingListeners.size;
+    if (total === 0 && this.pollIntervalHandle) {
+      clearInterval(this.pollIntervalHandle);
+      this.pollIntervalHandle = null;
+    }
+  }
+
+  public async pollSync() {
+    if (this.isPolling) return;
+    this.isPolling = true;
+
+    try {
+      const syncData = await fetchJSON('/api/sync');
+
+      // Dispatch Members
+      if (syncData.members) {
+        const serialized = JSON.stringify(syncData.members);
+        if (serialized !== this.lastMembersJSON) {
+          this.lastMembersJSON = serialized;
+          const parsedMembers = syncData.members.map((m: any) => ({
             ...m,
             createdAt: new Date(m.createdAt)
-          })));
-        }
-      } catch (error) {
-        console.warn("Backend members fetch failed, falling back to localStorage.", error);
-        // Fallback
-        const localRaw = localStorage.getItem('we_members');
-        if (localRaw) {
-          const list = JSON.parse(localRaw);
-          callback(list.map((m: any) => ({ ...m, createdAt: new Date(m.createdAt || Date.now()) })));
+          }));
+          this.memberListeners.forEach(cb => cb(parsedMembers));
         }
       }
-    };
 
-    poll();
-    const handle = setInterval(poll, 2500);
-    return () => {
-      active = false;
-      clearInterval(handle);
-    };
-  },
-
-  async addMember(name: string, password?: string, avatarColor?: string, avatarLetter?: string, avatarIcon?: string): Promise<any> {
-    try {
-      const data = await fetchJSON('/api/members', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, password, avatarColor, avatarLetter, avatarIcon })
-      });
-      return data;
-    } catch (e) {
-      console.warn("Backend addMember failed, writing to local storage too.", e);
-      // Fallback local storage sync
-      const localRaw = localStorage.getItem('we_members') || '[]';
-      const list = JSON.parse(localRaw);
-      const cleanId = name.toLowerCase().replace(/[^a-z0-9]/g, '_');
-      const existing = list.find((m: any) => m.name.toLowerCase() === name.toLowerCase());
-      if (!existing) {
-        const newItem = {
-          id: cleanId,
-          name,
-          password: password || name.toLowerCase(),
-          avatarColor: avatarColor || '#8F4E00',
-          avatarLetter: avatarLetter || name.charAt(0).toUpperCase(),
-          avatarIcon: avatarIcon || '',
-          createdAt: new Date().toISOString()
-        };
-        list.push(newItem);
-        localStorage.setItem('we_members', JSON.stringify(list));
-        return newItem;
-      }
-      return existing;
-    }
-  },
-
-  async loginMember(name: string, password?: string): Promise<any> {
-    try {
-      const resp = await fetchJSON('/api/members/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, password })
-      });
-      return resp; // returns { success: true, member }
-    } catch (e) {
-      console.warn("Backend loginMember failed, running localStorage authentication fallback.", e);
-      const localRaw = localStorage.getItem('we_members');
-      if (localRaw) {
-        const list = JSON.parse(localRaw);
-        const matched = list.find((m: any) => m.name.toLowerCase() === name.toLowerCase());
-        if (matched) {
-          const passMatches = (matched.password || '').trim().toLowerCase() === (password || '').trim().toLowerCase();
-          if (passMatches) {
-            const { password: _, ...rest } = matched;
-            return { success: true, member: rest };
-          }
-        }
-      }
-      // Basic fallback
-      const defaultMembers = [
-        { id: 'papa', name: 'Papa', password: 'papa' },
-        { id: 'mama', name: 'Mama', password: 'mama' },
-        { id: 'tibo', name: 'Tibo', password: 'tibo' },
-        { id: 'briek', name: 'Briek', password: 'briek' }
-      ];
-      const matchDefault = defaultMembers.find(m => m.name.toLowerCase() === name.toLowerCase());
-      if (matchDefault && matchDefault.password === (password || '').toLowerCase()) {
-        return {
-          success: true,
-          member: {
-            id: matchDefault.id,
-            name: matchDefault.name,
-            avatarColor: '#8F4E00',
-            avatarLetter: matchDefault.name.charAt(0)
-          }
-        };
-      }
-      throw new Error("Onjuiste naam of wachtwoord.");
-    }
-  },
-
-  async updateMember(memberId: string, updates: Partial<Member>): Promise<any> {
-    try {
-      const resp = await fetchJSON(`/api/members/${memberId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates)
-      });
-      return resp; // returns { success: true, member }
-    } catch (e) {
-      console.warn("Backend updateMember failed, saving to localStorage.", e);
-      const localRaw = localStorage.getItem('we_members') || '[]';
-      const list = JSON.parse(localRaw);
-      const idx = list.findIndex((m: any) => m.id === memberId);
-      if (idx !== -1) {
-        const oldMember = list[idx];
-        const updated = { ...oldMember, ...updates };
-        if (updates.name) {
-          updated.id = updates.name.toLowerCase().replace(/[^a-z0-9]/g, '_');
-        }
-        list[idx] = updated;
-        localStorage.setItem('we_members', JSON.stringify(list));
-        return { success: true, member: updated };
-      }
-      throw new Error("Lid niet gevonden.");
-    }
-  },
-
-  // Dishes real-time subscriptions
-  subscribeDishes(callback: (dishes: Dish[]) => void) {
-    let active = true;
-    let lastJSON = '';
-
-    const poll = async () => {
-      try {
-        const data = await fetchJSON('/api/dishes');
-        if (!active) return;
-        const serialized = JSON.stringify(data);
-        if (serialized !== lastJSON) {
-          lastJSON = serialized;
-          callback(data.map((d: any) => ({
+      // Dispatch Dishes
+      if (syncData.dishes) {
+        const serialized = JSON.stringify(syncData.dishes);
+        if (serialized !== this.lastDishesJSON) {
+          this.lastDishesJSON = serialized;
+          const parsedDishes = syncData.dishes.map((d: any) => ({
             ...d,
             createdAt: new Date(d.createdAt)
-          })));
-        }
-      } catch (error) {
-        console.warn("Backend dishes fetch failed, falling back to localStorage.", error);
-        const localRaw = localStorage.getItem('we_dishes');
-        if (localRaw) {
-          const list = JSON.parse(localRaw);
-          callback(list.map((d: any) => ({ ...d, createdAt: new Date(d.createdAt || Date.now()) })));
+          }));
+          this.dishesListeners.forEach(cb => cb(parsedDishes));
         }
       }
-    };
 
-    poll();
-    const handle = setInterval(poll, 2500);
-    return () => {
-      active = false;
-      clearInterval(handle);
-    };
-  },
-
-  async addDish(dish: Omit<Dish, 'id' | 'createdAt'>): Promise<string> {
-    try {
-      const savedDish = await fetchJSON('/api/dishes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(dish)
-      });
-      return savedDish.id;
-    } catch (e) {
-      console.warn("Backend addDish failed, using local storage fallback", e);
-      const generatedId = Math.random().toString(36).substring(2, 11);
-      const raw = localStorage.getItem('we_dishes') || '[]';
-      const list = JSON.parse(raw);
-      const val = { ...dish, id: generatedId, createdAt: new Date().toISOString() };
-      list.push(val);
-      localStorage.setItem('we_dishes', JSON.stringify(list));
-      return generatedId;
-    }
-  },
-
-  async updateDish(dishId: string, updates: Partial<Omit<Dish, 'id' | 'createdAt'>>): Promise<void> {
-    try {
-      await fetchJSON(`/api/dishes/${dishId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates)
-      });
-    } catch (e) {
-      console.warn("Backend updateDish failed, using local storage fallback", e);
-      const raw = localStorage.getItem('we_dishes') || '[]';
-      const list = JSON.parse(raw);
-      const idx = list.findIndex((d: any) => d.id === dishId);
-      if (idx !== -1) {
-        list[idx] = { ...list[idx], ...updates };
-        localStorage.setItem('we_dishes', JSON.stringify(list));
-      }
-    }
-  },
-
-  async deleteDish(dishId: string): Promise<void> {
-    try {
-      await fetchJSON(`/api/dishes/${dishId}`, { method: 'DELETE' });
-    } catch (e) {
-      console.warn("Backend deleteDish failed, deleting from local storage", e);
-      const raw = localStorage.getItem('we_dishes') || '[]';
-      let list = JSON.parse(raw);
-      list = list.filter((d: any) => d.id !== dishId);
-      localStorage.setItem('we_dishes', JSON.stringify(list));
-    }
-  },
-
-  // Ratings real-time subscription for ALL dishes
-  subscribeAllRatings(callback: (ratings: { [dishId: string]: Rating[] }) => void) {
-    let active = true;
-    let lastJSON = '';
-
-    const poll = async () => {
-      try {
-        const data = await fetchJSON('/api/ratings');
-        if (!active) return;
-        const serialized = JSON.stringify(data);
-        if (serialized !== lastJSON) {
-          lastJSON = serialized;
+      // Dispatch Ratings
+      if (syncData.ratings) {
+        const serialized = JSON.stringify(syncData.ratings);
+        if (serialized !== this.lastRatingsJSON) {
+          this.lastRatingsJSON = serialized;
           const map: { [dishId: string]: Rating[] } = {};
-          Object.keys(data).forEach((dishId) => {
-            map[dishId] = data[dishId].map((r: any) => ({
+          Object.keys(syncData.ratings).forEach(dishId => {
+            map[dishId] = syncData.ratings[dishId].map((r: any) => ({
               ...r,
               updatedAt: new Date(r.updatedAt)
             }));
           });
-          callback(map);
+          this.ratingsListeners.forEach(cb => cb(map));
         }
-      } catch (error) {
-        console.warn("Backend ratings fetch failed, falling back to localStorage.", error);
-        const raw = localStorage.getItem('we_ratings') || '{}';
-        const ratingsMap = JSON.parse(raw);
-        const parsedMap: { [dishId: string]: Rating[] } = {};
-        Object.keys(ratingsMap).forEach(dishId => {
-          parsedMap[dishId] = Object.keys(ratingsMap[dishId]).map(memberName => ({
-            id: memberName,
-            score: ratingsMap[dishId][memberName],
-            ratedBy: memberName,
-            updatedAt: new Date()
-          }));
-        });
-        callback(parsedMap);
       }
-    };
 
-    poll();
-    const handle = setInterval(poll, 2500);
+      // Dispatch Planned Meals
+      if (syncData.planned_meals) {
+        const serialized = JSON.stringify(syncData.planned_meals);
+        if (serialized !== this.lastPlannedJSON) {
+          this.lastPlannedJSON = serialized;
+          const parsedPlanned = syncData.planned_meals.map((item: any) => ({
+            ...item,
+            createdAt: new Date(item.createdAt)
+          }));
+          this.plannedListeners.forEach(cb => cb(parsedPlanned));
+        }
+      }
+
+      // Dispatch Shopping List
+      if (syncData.shopping_list) {
+        const serialized = JSON.stringify(syncData.shopping_list);
+        if (serialized !== this.lastShoppingJSON) {
+          this.lastShoppingJSON = serialized;
+          const parsedShopping = syncData.shopping_list.map((item: any) => ({
+            ...item,
+            createdAt: new Date(item.createdAt)
+          }));
+          this.shoppingListeners.forEach(cb => cb(parsedShopping));
+        }
+      }
+    } catch (error) {
+      console.warn('Sync engine polling error:', error);
+    } finally {
+      this.isPolling = false;
+    }
+  }
+
+  public subscribeMembers(callback: Listener<Member[]>) {
+    this.memberListeners.add(callback);
+    this.startPollingIfNeeded();
     return () => {
-      active = false;
-      clearInterval(handle);
+      this.memberListeners.delete(callback);
+      this.stopPollingIfEmpty();
     };
+  }
+
+  public subscribeDishes(callback: Listener<Dish[]>) {
+    this.dishesListeners.add(callback);
+    this.startPollingIfNeeded();
+    return () => {
+      this.dishesListeners.delete(callback);
+      this.stopPollingIfEmpty();
+    };
+  }
+
+  public subscribeRatings(callback: Listener<{ [dishId: string]: Rating[] }>) {
+    this.ratingsListeners.add(callback);
+    this.startPollingIfNeeded();
+    return () => {
+      this.ratingsListeners.delete(callback);
+      this.stopPollingIfEmpty();
+    };
+  }
+
+  public subscribePlannedMeals(callback: Listener<PlannedMeal[]>) {
+    this.plannedListeners.add(callback);
+    this.startPollingIfNeeded();
+    return () => {
+      this.plannedListeners.delete(callback);
+      this.stopPollingIfEmpty();
+    };
+  }
+
+  public subscribeShoppingList(callback: Listener<ShoppingItem[]>) {
+    this.shoppingListeners.add(callback);
+    this.startPollingIfNeeded();
+    return () => {
+      this.shoppingListeners.delete(callback);
+      this.stopPollingIfEmpty();
+    };
+  }
+}
+
+const syncEngine = new SyncEngine();
+
+export const MealDatabase = {
+  // Members real-time subscriptions
+  subscribeMembers(callback: (members: Member[]) => void) {
+    return syncEngine.subscribeMembers(callback);
+  },
+
+  async addMember(name: string, password?: string, avatarColor?: string, avatarLetter?: string, avatarIcon?: string): Promise<any> {
+    const data = await fetchJSON('/api/members', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, password, avatarColor, avatarLetter, avatarIcon })
+    });
+    syncEngine.pollSync();
+    return data;
+  },
+
+  async loginMember(name: string, password?: string): Promise<any> {
+    const resp = await fetchJSON('/api/members/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, password })
+    });
+    return resp; // returns { success: true, member }
+  },
+
+  async updateMember(memberId: string, updates: Partial<Member>): Promise<any> {
+    const resp = await fetchJSON(`/api/members/${memberId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates)
+    });
+    syncEngine.pollSync();
+    return resp;
+  },
+
+  async deleteMember(memberId: string): Promise<void> {
+    await fetchJSON(`/api/members/${memberId}`, {
+      method: 'DELETE'
+    });
+    syncEngine.pollSync();
+  },
+
+  // Dishes real-time subscriptions
+  subscribeDishes(callback: (dishes: Dish[]) => void) {
+    return syncEngine.subscribeDishes(callback);
+  },
+
+  async addDish(dish: Omit<Dish, 'id' | 'createdAt'>): Promise<string> {
+    const savedDish = await fetchJSON('/api/dishes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dish)
+    });
+    syncEngine.pollSync();
+    return savedDish.id;
+  },
+
+  async updateDish(dishId: string, updates: Partial<Omit<Dish, 'id' | 'createdAt'>>): Promise<void> {
+    await fetchJSON(`/api/dishes/${dishId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates)
+    });
+    syncEngine.pollSync();
+  },
+
+  async deleteDish(dishId: string): Promise<void> {
+    await fetchJSON(`/api/dishes/${dishId}`, { method: 'DELETE' });
+    syncEngine.pollSync();
+  },
+
+  // Ratings real-time subscriptions
+  subscribeAllRatings(callback: (ratings: { [dishId: string]: Rating[] }) => void) {
+    return syncEngine.subscribeRatings(callback);
   },
 
   async rateDish(dishId: string, memberName: string, score: number): Promise<void> {
-    try {
-      await fetchJSON('/api/ratings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dishId, memberName, score })
-      });
-    } catch (e) {
-      console.warn("Backend rateDish failed, writing to local storage too", e);
-      const raw = localStorage.getItem('we_ratings') || '{}';
-      const ratingsMap = JSON.parse(raw);
-      if (!ratingsMap[dishId]) {
-        ratingsMap[dishId] = {};
-      }
-      ratingsMap[dishId][memberName] = score;
-      localStorage.setItem('we_ratings', JSON.stringify(ratingsMap));
-    }
+    await fetchJSON('/api/ratings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dishId, memberName, score })
+    });
+    syncEngine.pollSync();
   },
 
-  // Planned meals real-time subscription
+  // Planned meals real-time subscriptions
   subscribePlannedMeals(callback: (planned: PlannedMeal[]) => void) {
-    let active = true;
-    let lastJSON = '';
-
-    const poll = async () => {
-      try {
-        const data = await fetchJSON('/api/planned_meals');
-        if (!active) return;
-        const serialized = JSON.stringify(data);
-        if (serialized !== lastJSON) {
-          lastJSON = serialized;
-          callback(data.map((item: any) => ({
-            ...item,
-            createdAt: new Date(item.createdAt)
-          })));
-        }
-      } catch (error) {
-        console.warn("Backend planned meals fetch failed, falling back to localStorage.", error);
-        const raw = localStorage.getItem('we_planned_meals') || '[]';
-        const list = JSON.parse(raw);
-        callback(list.map((item: any) => ({
-          ...item,
-          createdAt: new Date(item.createdAt)
-        })));
-      }
-    };
-
-    poll();
-    const handle = setInterval(poll, 2500);
-    return () => {
-      active = false;
-      clearInterval(handle);
-    };
+    return syncEngine.subscribePlannedMeals(callback);
   },
 
   async addPlannedMeal(planned: Omit<PlannedMeal, 'id' | 'createdAt'>): Promise<string> {
-    try {
-      const savedMeal = await fetchJSON('/api/planned_meals', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(planned)
-      });
-      return savedMeal.id;
-    } catch (e) {
-      console.warn("Backend addPlannedMeal failed, writing to local storage fallback", e);
-      const generatedId = Math.random().toString(36).substring(2, 11);
-      const raw = localStorage.getItem('we_planned_meals') || '[]';
-      const list = JSON.parse(raw);
-      const newItem = {
-        ...planned,
-        id: generatedId,
-        createdAt: new Date().toISOString()
-      };
-      list.push(newItem);
-      localStorage.setItem('we_planned_meals', JSON.stringify(list));
-      return generatedId;
-    }
+    const savedMeal = await fetchJSON('/api/planned_meals', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(planned)
+    });
+    syncEngine.pollSync();
+    return savedMeal.id;
   },
 
   async deletePlannedMeal(id: string): Promise<void> {
-    try {
-      await fetchJSON(`/api/planned_meals/${id}`, { method: 'DELETE' });
-    } catch (e) {
-      console.warn("Backend deletePlannedMeal failed, deleting from localStorage", e);
-      const raw = localStorage.getItem('we_planned_meals') || '[]';
-      let list = JSON.parse(raw);
-      list = list.filter((item: any) => item.id !== id);
-      localStorage.setItem('we_planned_meals', JSON.stringify(list));
-    }
+    await fetchJSON(`/api/planned_meals/${id}`, { method: 'DELETE' });
+    syncEngine.pollSync();
   },
 
-  // Shopping List real-time subscription
-  subscribeShoppingList(callback: (items: any[]) => void) {
-    let active = true;
-    let lastJSON = '';
-
-    const poll = async () => {
-      try {
-        const data = await fetchJSON('/api/shopping_list');
-        if (!active) return;
-        const serialized = JSON.stringify(data);
-        if (serialized !== lastJSON) {
-          lastJSON = serialized;
-          callback(data.map((item: any) => ({
-            ...item,
-            createdAt: new Date(item.createdAt)
-          })));
-        }
-      } catch (error) {
-        console.warn("Backend shopping list fetch failed, falling back to localStorage.", error);
-        const raw = localStorage.getItem('we_shopping_list') || '[]';
-        const list = JSON.parse(raw);
-        callback(list.map((item: any) => ({
-          ...item,
-          createdAt: new Date(item.createdAt)
-        })));
-      }
-    };
-
-    poll();
-    const handle = setInterval(poll, 2500);
-    return () => {
-      active = false;
-      clearInterval(handle);
-    };
+  // Shopping List real-time subscriptions
+  subscribeShoppingList(callback: (items: ShoppingItem[]) => void) {
+    return syncEngine.subscribeShoppingList(callback);
   },
 
   async addShoppingItems(items: any | any[]): Promise<void> {
-    try {
-      await fetchJSON('/api/shopping_list', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(items)
-      });
-    } catch (e) {
-      console.warn("Backend addShoppingItems failed, adding to local storage", e);
-      const raw = localStorage.getItem('we_shopping_list') || '[]';
-      const list = JSON.parse(raw);
-      const incoming = Array.isArray(items) ? items : [items];
-
-      const mergeAmounts = (a: string, b: string): string => {
-        a = (a || '').trim();
-        b = (b || '').trim();
-        if (!a) return b;
-        if (!b) return a;
-
-        const regex = /^([\d.,]+)\s*(.*)$/;
-        const matchA = a.match(regex);
-        const matchB = b.match(regex);
-
-        if (matchA && matchB) {
-          const numA = parseFloat(matchA[1].replace(',', '.'));
-          const numB = parseFloat(matchB[1].replace(',', '.'));
-          const unitA = matchA[2].trim().toLowerCase();
-          const unitB = matchB[2].trim().toLowerCase();
-
-          if (!isNaN(numA) && !isNaN(numB)) {
-            if (unitA === unitB) {
-              const sum = numA + numB;
-              const formattedSum = Number(sum.toFixed(2));
-              return matchA[2].trim() ? `${formattedSum} ${matchA[2].trim()}` : `${formattedSum}`;
-            }
-            const gUnits = ['g', 'gr', 'gram'];
-            if (gUnits.includes(unitA) && gUnits.includes(unitB)) {
-              const sum = numA + numB;
-              return `${Number(sum.toFixed(2))} g`;
-            }
-            return `${a} + ${b}`;
-          }
-        }
-
-        if (a.toLowerCase() === b.toLowerCase()) {
-          return a;
-        }
-        return `${a} + ${b}`;
-      };
-      
-      incoming.forEach(it => {
-        const nameNorm = (it.name || '').trim().toLowerCase();
-        const categoryVal = it.category || 'Overig';
-        const isCompleted = !!it.completed;
-        let merged = false;
-
-        if (!isCompleted) {
-          const idx = list.findIndex((x: any) => 
-            !x.completed && 
-            (x.name || '').trim().toLowerCase() === nameNorm && 
-            (x.category || 'Overig') === categoryVal
-          );
-          if (idx !== -1) {
-            list[idx].amount = mergeAmounts(list[idx].amount, it.amount);
-            merged = true;
-          }
-        }
-
-        if (!merged) {
-          list.push({
-            ...it,
-            id: Math.random().toString(36).substring(2, 11),
-            createdAt: new Date().toISOString()
-          });
-        }
-      });
-      localStorage.setItem('we_shopping_list', JSON.stringify(list));
-    }
+    await fetchJSON('/api/shopping_list', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(items)
+    });
+    syncEngine.pollSync();
   },
 
   async updateShoppingItem(id: string, updates: any): Promise<void> {
-    try {
-      await fetchJSON(`/api/shopping_list/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates)
-      });
-    } catch (e) {
-      console.warn("Backend updateShoppingItem failed, updating localStorage", e);
-      const raw = localStorage.getItem('we_shopping_list') || '[]';
-      const list = JSON.parse(raw);
-      const idx = list.findIndex((item: any) => item.id === id);
-      if (idx !== -1) {
-        list[idx] = { ...list[idx], ...updates };
-        localStorage.setItem('we_shopping_list', JSON.stringify(list));
-      }
-    }
+    await fetchJSON(`/api/shopping_list/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates)
+    });
+    syncEngine.pollSync();
   },
 
   async deleteShoppingItem(id: string): Promise<void> {
-    try {
-      await fetchJSON(`/api/shopping_list/${id}`, { method: 'DELETE' });
-    } catch (e) {
-      console.warn("Backend deleteShoppingItem failed, deleting from localStorage", e);
-      const raw = localStorage.getItem('we_shopping_list') || '[]';
-      let list = JSON.parse(raw);
-      list = list.filter((item: any) => item.id !== id);
-      localStorage.setItem('we_shopping_list', JSON.stringify(list));
-    }
+    await fetchJSON(`/api/shopping_list/${id}`, { method: 'DELETE' });
+    syncEngine.pollSync();
   },
 
   async clearShoppingList(type: 'completed' | 'all'): Promise<void> {
-    try {
-      await fetchJSON('/api/shopping_list/clear', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type })
-      });
-    } catch (e) {
-      console.warn("Backend clearShoppingList failed, clearing localStorage", e);
-      const raw = localStorage.getItem('we_shopping_list') || '[]';
-      let list = JSON.parse(raw);
-      if (type === 'completed') {
-        list = list.filter((item: any) => !item.completed);
-      } else {
-        list = [];
-      }
-      localStorage.setItem('we_shopping_list', JSON.stringify(list));
-    }
+    await fetchJSON('/api/shopping_list/clear', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type })
+    });
+    syncEngine.pollSync();
   }
 };

@@ -6,6 +6,7 @@
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
+import crypto from 'crypto';
 import { createServer as createViteServer } from 'vite';
 
 const app = express();
@@ -17,13 +18,53 @@ app.use(express.json({ limit: '15mb' }));
 const DB_DIR = path.join(process.cwd(), 'data');
 const DB_FILE = path.join(DB_DIR, 'db.json');
 
-// Default initial state matching exactly our kookboek seeding
+// Password hashing helpers
+function hashPassword(password: string): string {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(password.normalize(), salt, 64).toString('hex');
+  return `scrypt:${salt}:${hash}`;
+}
+
+function verifyPassword(password: string, storedHash: string): boolean {
+  if (!storedHash) return false;
+  if (!storedHash.startsWith('scrypt:')) {
+    // Legacy plaintext support for automatic migration
+    return storedHash.trim().toLowerCase() === password.trim().toLowerCase();
+  }
+  const parts = storedHash.split(':');
+  if (parts.length !== 3) return false;
+  const [, salt, hash] = parts;
+  try {
+    const testHash = crypto.scryptSync(password.normalize(), salt, 64).toString('hex');
+    return crypto.timingSafeEqual(Buffer.from(hash, 'hex'), Buffer.from(testHash, 'hex'));
+  } catch {
+    return false;
+  }
+}
+
+// In-memory rate limiting for login attempts (10 attempts per minute per IP)
+const loginAttempts = new Map<string, { count: number; resetAt: number }>();
+function checkLoginRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = loginAttempts.get(ip);
+  if (!entry || now > entry.resetAt) {
+    loginAttempts.set(ip, { count: 1, resetAt: now + 60 * 1000 });
+    return true;
+  }
+  if (entry.count >= 10) {
+    return false;
+  }
+  entry.count++;
+  return true;
+}
+
+// Default initial state
 const DEFAULT_DB = {
   members: [
-    { id: 'papa', name: 'Papa', password: 'papa', avatarColor: '#8F4E00', avatarLetter: 'P', avatarIcon: 'smile', createdAt: new Date().toISOString() },
-    { id: 'mama', name: 'Mama', password: 'mama', avatarColor: '#5a7862', avatarLetter: 'M', avatarIcon: 'heart', createdAt: new Date().toISOString() },
-    { id: 'tibo', name: 'Tibo', password: 'tibo', avatarColor: '#f28f3b', avatarLetter: 'T', avatarIcon: 'star', createdAt: new Date().toISOString() },
-    { id: 'briek', name: 'Briek', password: 'briek', avatarColor: '#9b59b6', avatarLetter: 'B', avatarIcon: 'crown', createdAt: new Date().toISOString() }
+    { id: 'papa', name: 'Papa', password: hashPassword('papa'), avatarColor: '#8F4E00', avatarLetter: 'P', avatarIcon: 'smile', createdAt: new Date().toISOString() },
+    { id: 'mama', name: 'Mama', password: hashPassword('mama'), avatarColor: '#5a7862', avatarLetter: 'M', avatarIcon: 'heart', createdAt: new Date().toISOString() },
+    { id: 'tibo', name: 'Tibo', password: hashPassword('tibo'), avatarColor: '#f28f3b', avatarLetter: 'T', avatarIcon: 'star', createdAt: new Date().toISOString() },
+    { id: 'briek', name: 'Briek', password: hashPassword('briek'), avatarColor: '#9b59b6', avatarLetter: 'B', avatarIcon: 'crown', createdAt: new Date().toISOString() }
   ],
   dishes: [
     {
@@ -117,14 +158,14 @@ const DEFAULT_DB = {
   shopping_list: []
 };
 
-// Helper: Read database
+// Helper: Read database with automatic legacy migration
 function readDB() {
   try {
     if (!fs.existsSync(DB_DIR)) {
       fs.mkdirSync(DB_DIR, { recursive: true });
     }
     if (!fs.existsSync(DB_FILE)) {
-      fs.writeFileSync(DB_FILE, JSON.stringify(DEFAULT_DB, null, 2), 'utf-8');
+      writeDB(DEFAULT_DB);
       return DEFAULT_DB;
     }
     const content = fs.readFileSync(DB_FILE, 'utf-8');
@@ -134,10 +175,15 @@ function readDB() {
     if (parsed.members && Array.isArray(parsed.members)) {
       parsed.members = parsed.members.map((m: any) => {
         let updated = false;
+        // Migrate plaintext passwords to scrypt hashes
         if (!m.password) {
-          m.password = m.name.toLowerCase();
+          m.password = hashPassword(m.name.toLowerCase());
+          updated = true;
+        } else if (!m.password.startsWith('scrypt:')) {
+          m.password = hashPassword(m.password);
           updated = true;
         }
+
         if (!m.avatarColor) {
           const colors = ['#8F4E00', '#5a7862', '#f28f3b', '#9b59b6', '#3498db', '#1abc9c', '#e67e22'];
           let hash = 0;
@@ -173,13 +219,15 @@ function readDB() {
   }
 }
 
-// Helper: Write database
+// Helper: Atomic write database
 function writeDB(data: any) {
   try {
     if (!fs.existsSync(DB_DIR)) {
       fs.mkdirSync(DB_DIR, { recursive: true });
     }
-    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf-8');
+    const tempFile = path.join(DB_DIR, `db.json.${crypto.randomUUID()}.tmp`);
+    fs.writeFileSync(tempFile, JSON.stringify(data, null, 2), 'utf-8');
+    fs.renameSync(tempFile, DB_FILE);
   } catch (error) {
     console.error('Error writing to JSON DB', error);
   }
@@ -189,6 +237,32 @@ function writeDB(data: any) {
 readDB();
 
 // --- API Endpoints ---
+
+// GET: Unified sync snapshot for real-time synchronization
+app.get('/api/sync', (req, res) => {
+  const db = readDB();
+  const publicMembers = (db.members || []).map(({ password, ...rest }: any) => rest);
+
+  const rawRatings = db.ratings || {};
+  const formattedRatings: { [dishId: string]: any[] } = {};
+  Object.keys(rawRatings).forEach((dishId) => {
+    formattedRatings[dishId] = Object.keys(rawRatings[dishId]).map((memberName) => ({
+      id: memberName,
+      score: rawRatings[dishId][memberName],
+      ratedBy: memberName,
+      updatedAt: new Date().toISOString()
+    }));
+  });
+
+  res.json({
+    members: publicMembers,
+    dishes: db.dishes || [],
+    ratings: formattedRatings,
+    planned_meals: db.planned_meals || [],
+    shopping_list: db.shopping_list || [],
+    timestamp: Date.now()
+  });
+});
 
 // GET: All members (excluding passwords for safety)
 app.get('/api/members', (req, res) => {
@@ -206,19 +280,20 @@ app.post('/api/members', (req, res) => {
   }
   const db = readDB();
   const cleanId = name.toLowerCase().replace(/[^a-z0-9]/g, '_');
-  
+
   if (!db.members) db.members = [];
-  
+
   const alreadyExists = db.members.some((m: any) => m.name.toLowerCase() === name.toLowerCase());
   if (alreadyExists) {
     res.status(400).json({ error: 'Dit gezinslid bestaat al!' });
     return;
   }
 
+  const rawPassword = password ? password.trim() : name.trim().toLowerCase();
   const newMember = {
     id: cleanId,
     name: name.trim(),
-    password: password ? password.trim() : name.trim().toLowerCase(),
+    password: hashPassword(rawPassword),
     avatarColor: avatarColor || '#8F4E00',
     avatarLetter: avatarLetter || name.trim().charAt(0).toUpperCase(),
     avatarIcon: avatarIcon || '',
@@ -231,8 +306,14 @@ app.post('/api/members', (req, res) => {
   res.json(publicMember);
 });
 
-// POST: Login securely
+// POST: Login securely with rate limiting
 app.post('/api/members/login', (req, res) => {
+  const ip = req.ip || req.socket.remoteAddress || 'unknown';
+  if (!checkLoginRateLimit(ip)) {
+    res.status(429).json({ error: 'Te veel inlogpogingen. Probeer het over een minuut opnieuw.' });
+    return;
+  }
+
   const { name, password } = req.body;
   if (!name || !password) {
     res.status(400).json({ error: 'Naam en wachtwoord zijn verplicht.' });
@@ -244,8 +325,8 @@ app.post('/api/members/login', (req, res) => {
     res.status(404).json({ error: 'Gezinslid niet gevonden.' });
     return;
   }
-  
-  const matches = (member.password || '').trim().toLowerCase() === password.trim().toLowerCase();
+
+  const matches = verifyPassword(password.trim(), member.password || '');
   if (!matches) {
     res.status(401).json({ error: 'Onjuist wachtwoord.' });
     return;
@@ -260,9 +341,9 @@ app.put('/api/members/:id', (req, res) => {
   const { id } = req.params;
   const { name, password, avatarColor, avatarLetter, avatarIcon } = req.body;
   const db = readDB();
-  
+
   if (!db.members) db.members = [];
-  
+
   const memberIdx = db.members.findIndex((m: any) => m.id === id);
   if (memberIdx === -1) {
     res.status(404).json({ error: 'Gezinslid niet gevonden.' });
@@ -272,7 +353,7 @@ app.put('/api/members/:id', (req, res) => {
   const oldMember = db.members[memberIdx];
   const oldName = oldMember.name;
   const newName = name ? name.trim() : oldName;
-  
+
   if (newName.toLowerCase() !== oldName.toLowerCase()) {
     const nameTaken = db.members.some((m: any) => m.id !== id && m.name.toLowerCase() === newName.toLowerCase());
     if (nameTaken) {
@@ -281,11 +362,15 @@ app.put('/api/members/:id', (req, res) => {
     }
   }
 
+  const updatedPassword = password !== undefined && password.trim() !== ''
+    ? hashPassword(password.trim())
+    : oldMember.password;
+
   const updatedMember = {
     ...oldMember,
     name: newName,
     id: newName.toLowerCase().replace(/[^a-z0-9]/g, '_'),
-    password: password !== undefined ? password.trim() : oldMember.password,
+    password: updatedPassword,
     avatarColor: avatarColor || oldMember.avatarColor,
     avatarLetter: avatarLetter || oldMember.avatarLetter,
     avatarIcon: avatarIcon !== undefined ? avatarIcon : oldMember.avatarIcon,
@@ -325,6 +410,38 @@ app.put('/api/members/:id', (req, res) => {
   res.json({ success: true, member: publicMember });
 });
 
+// DELETE: Delete a family member
+app.delete('/api/members/:id', (req, res) => {
+  const { id } = req.params;
+  const db = readDB();
+  if (!db.members) db.members = [];
+
+  const memberToDelete = db.members.find((m: any) => m.id === id);
+  if (!memberToDelete) {
+    res.status(404).json({ error: 'Gezinslid niet gevonden.' });
+    return;
+  }
+
+  if (db.members.length <= 1) {
+    res.status(400).json({ error: 'Er moet minstens één gezinslid bewaard blijven.' });
+    return;
+  }
+
+  const memberName = memberToDelete.name;
+  db.members = db.members.filter((m: any) => m.id !== id);
+
+  if (db.ratings) {
+    Object.keys(db.ratings).forEach((dishId) => {
+      if (db.ratings[dishId] && db.ratings[dishId][memberName] !== undefined) {
+        delete db.ratings[dishId][memberName];
+      }
+    });
+  }
+
+  writeDB(db);
+  res.json({ success: true });
+});
+
 // GET: All dishes
 app.get('/api/dishes', (req, res) => {
   const db = readDB();
@@ -339,7 +456,7 @@ app.post('/api/dishes', (req, res) => {
     return;
   }
   const db = readDB();
-  const generatedId = Math.random().toString(36).substring(2, 11);
+  const generatedId = crypto.randomUUID();
   const newDish = {
     ...dish,
     id: generatedId,
@@ -359,7 +476,6 @@ app.delete('/api/dishes/:id', (req, res) => {
   if (db.ratings) {
     delete db.ratings[id];
   }
-  // Also clean up any scheduled meals of this deleted dish
   db.planned_meals = (db.planned_meals || []).filter((m: any) => m.dishId !== id);
   writeDB(db);
   res.json({ success: true });
@@ -391,7 +507,7 @@ app.get('/api/ratings', (req, res) => {
   const db = readDB();
   const rawRatings = db.ratings || {};
   const formattedRatings: { [dishId: string]: any[] } = {};
-  
+
   Object.keys(rawRatings).forEach((dishId) => {
     formattedRatings[dishId] = Object.keys(rawRatings[dishId]).map((memberName) => ({
       id: memberName,
@@ -400,7 +516,7 @@ app.get('/api/ratings', (req, res) => {
       updatedAt: new Date().toISOString()
     }));
   });
-  
+
   res.json(formattedRatings);
 });
 
@@ -414,7 +530,7 @@ app.post('/api/ratings', (req, res) => {
   const db = readDB();
   if (!db.ratings) db.ratings = {};
   if (!db.ratings[dishId]) db.ratings[dishId] = {};
-  
+
   db.ratings[dishId][memberName] = Number(score);
   writeDB(db);
   res.json({ success: true });
@@ -434,7 +550,7 @@ app.post('/api/planned_meals', (req, res) => {
     return;
   }
   const db = readDB();
-  const generatedId = Math.random().toString(36).substring(2, 11);
+  const generatedId = crypto.randomUUID();
   const newMeal = {
     ...meal,
     id: generatedId,
@@ -475,7 +591,6 @@ app.post('/api/shopping_list', (req, res) => {
     if (!a) return b;
     if (!b) return a;
 
-    // Regex to match a number at the start, followed by optional unit text
     const regex = /^([\d.,]+)\s*(.*)$/;
     const matchA = a.match(regex);
     const matchB = b.match(regex);
@@ -513,10 +628,9 @@ app.post('/api/shopping_list', (req, res) => {
     const isCompleted = !!itemObj.completed;
 
     if (!isCompleted) {
-      // Find active item with the same name and category
-      const existingIndex = db.shopping_list.findIndex((item: any) => 
-        !item.completed && 
-        (item.name || '').trim().toLowerCase() === nameNorm && 
+      const existingIndex = db.shopping_list.findIndex((item: any) =>
+        !item.completed &&
+        (item.name || '').trim().toLowerCase() === nameNorm &&
         (item.category || 'Overig') === categoryVal
       );
 
@@ -531,7 +645,7 @@ app.post('/api/shopping_list', (req, res) => {
       }
     }
 
-    const generatedId = Math.random().toString(36).substring(2, 11);
+    const generatedId = crypto.randomUUID();
     const newItem = {
       id: generatedId,
       name: (itemObj.name || 'Onbekend').trim(),
@@ -560,7 +674,7 @@ app.post('/api/shopping_list', (req, res) => {
   }
 });
 
-// PUT: Modify an item (e.g. toggle checkbox or update details)
+// PUT: Modify an item
 app.put('/api/shopping_list/:id', (req, res) => {
   const { id } = req.params;
   const updates = req.body;
@@ -590,7 +704,6 @@ app.delete('/api/shopping_list/:id', (req, res) => {
 });
 
 // POST: Clear shopping list items (batch)
-// Body: { type: 'completed' | 'all' }
 app.post('/api/shopping_list/clear', (req, res) => {
   const { type } = req.body;
   const db = readDB();
@@ -604,14 +717,13 @@ app.post('/api/shopping_list/clear', (req, res) => {
     res.status(400).json({ error: 'Ongeldig type. Gebruik completed of all.' });
     return;
   }
-  
+
   writeDB(db);
   res.json({ success: true, count: db.shopping_list.length });
 });
 
 // Start server
 async function startServer() {
-  // Vite dev middleware setup if not in production
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
       server: { middlewareMode: true },

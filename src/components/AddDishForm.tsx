@@ -32,14 +32,14 @@ interface AddDishFormProps {
 }
 
 const SH_CATEGORIES = [
-  { value: 'Groenten & Fruit', label: '🥦 Groenten & Fruit' },
-  { value: 'Zuivel', label: '🥛 Zuivel' },
-  { value: 'Vlees & Vis', label: '🥩 Vlees & Vis' },
-  { value: 'Bakkerij', label: '🍞 Bakkerij' },
-  { value: 'Kruidenier & Droogwaren', label: '🥫 Kruidenier & Droogwaren' },
-  { value: 'Dranken & Snacks', label: '🥤 Dranken & Snacks' },
-  { value: 'Huishoudelijk & Verzorging', label: '🧼 Huishoudelijk & Verzorging' },
-  { value: 'Overig', label: '📦 Overig' }
+  { value: 'Groenten & Fruit', label: 'Groenten & Fruit' },
+  { value: 'Zuivel', label: 'Zuivel' },
+  { value: 'Vlees & Vis', label: 'Vlees & Vis' },
+  { value: 'Bakkerij', label: 'Bakkerij' },
+  { value: 'Kruidenier & Droogwaren', label: 'Kruidenier & Droogwaren' },
+  { value: 'Dranken & Snacks', label: 'Dranken & Snacks' },
+  { value: 'Huishoudelijk & Verzorging', label: 'Huishoudelijk & Verzorging' },
+  { value: 'Overig', label: 'Overig' }
 ];
 
 const cuisinePresets = [

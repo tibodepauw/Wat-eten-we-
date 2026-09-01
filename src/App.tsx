@@ -52,22 +52,6 @@ export default function App() {
   const [members, setMembers] = useState<Member[]>([]);
   const [plannedMeals, setPlannedMeals] = useState<PlannedMeal[]>([]);
 
-  const briekAddedRef = React.useRef(false);
-
-  // Self-healing Briek check: Automatically add Briek if he doesn't exist in Firestore/Local DB
-  useEffect(() => {
-    if (members.length > 0) {
-      const hasBriek = members.some(m => m.name.toLowerCase() === 'briek');
-      if (!hasBriek && !briekAddedRef.current) {
-        briekAddedRef.current = true;
-        MealDatabase.addMember('Briek').catch(err => {
-          console.error('Error adding Briek:', err);
-          briekAddedRef.current = false;
-        });
-      }
-    }
-  }, [members]);
-
   // Check LocalStorage for active user on boot
   useEffect(() => {
     const savedUser = localStorage.getItem('we_active_user');

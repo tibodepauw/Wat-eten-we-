@@ -45,14 +45,14 @@ interface DishListProps {
 type SortOption = 'rating' | 'date' | 'name';
 
 const SH_CATEGORIES = [
-  { value: 'Groenten & Fruit', label: '🥦 Groenten & Fruit' },
-  { value: 'Zuivel', label: '🥛 Zuivel' },
-  { value: 'Vlees & Vis', label: '🥩 Vlees & Vis' },
-  { value: 'Bakkerij', label: '🍞 Bakkerij' },
-  { value: 'Kruidenier & Droogwaren', label: '🥫 Kruidenier & Droogwaren' },
-  { value: 'Dranken & Snacks', label: '🥤 Dranken & Snacks' },
-  { value: 'Huishoudelijk & Verzorging', label: '🧼 Huishoudelijk & Verzorging' },
-  { value: 'Overig', label: '📦 Overig' }
+  { value: 'Groenten & Fruit', label: 'Groenten & Fruit' },
+  { value: 'Zuivel', label: 'Zuivel' },
+  { value: 'Vlees & Vis', label: 'Vlees & Vis' },
+  { value: 'Bakkerij', label: 'Bakkerij' },
+  { value: 'Kruidenier & Droogwaren', label: 'Kruidenier & Droogwaren' },
+  { value: 'Dranken & Snacks', label: 'Dranken & Snacks' },
+  { value: 'Huishoudelijk & Verzorging', label: 'Huishoudelijk & Verzorging' },
+  { value: 'Overig', label: 'Overig' }
 ];
 
 const cuisinePresets = [
@@ -477,11 +477,11 @@ export default function DishList({ dishes, ratingsMap, members, activeProfile }:
               onChange={(e) => setMaxPrepTime(e.target.value as number | 'all')}
               sx={{ borderRadius: '16px' }}
             >
-              <MenuItem value="all">Alle tijden ⏳</MenuItem>
-              <MenuItem value={15}>Snel (≤ 15 min)</MenuItem>
-              <MenuItem value={30}>Gemiddeld (≤ 30 min)</MenuItem>
-              <MenuItem value={45}>Uitgebreid (≤ 45 min)</MenuItem>
-              <MenuItem value={60}>Feestelijk (≤ 60 min)</MenuItem>
+              <MenuItem value="all">Alle tijden</MenuItem>
+              <MenuItem value={15}>Snel (&lt;= 15 min)</MenuItem>
+              <MenuItem value={30}>Gemiddeld (&lt;= 30 min)</MenuItem>
+              <MenuItem value={45}>Uitgebreid (&lt;= 45 min)</MenuItem>
+              <MenuItem value={60}>Feestelijk (&lt;= 60 min)</MenuItem>
             </Select>
           </FormControl>
         </Box>
@@ -495,9 +495,9 @@ export default function DishList({ dishes, ratingsMap, members, activeProfile }:
               onChange={(e) => setSortBy(e.target.value as SortOption)}
               sx={{ borderRadius: '16px' }}
             >
-              <MenuItem value="rating">Beste score ★</MenuItem>
-              <MenuItem value="date">Nieuwste gerechten 📅</MenuItem>
-              <MenuItem value="name">Alfabetische volgorde 🔤</MenuItem>
+              <MenuItem value="rating">Beste score</MenuItem>
+              <MenuItem value="date">Nieuwste gerechten</MenuItem>
+              <MenuItem value="name">Alfabetische volgorde</MenuItem>
             </Select>
           </FormControl>
         </Box>
@@ -989,7 +989,7 @@ export default function DishList({ dishes, ratingsMap, members, activeProfile }:
                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.8, mt: 0.5 }}>
                           <Star size={20} fill="#f1a80a" color="#f1a80a" />
                           <Typography variant="h4" sx={{ fontWeight: 900, color: '#311300' }}>
-                            {getDishStats(selectedDish.id).average > 0 ? getDishStats(selectedDish.id).average.toFixed(1) : '—'}
+                            {getDishStats(selectedDish.id).average > 0 ? getDishStats(selectedDish.id).average.toFixed(1) : '-'}
                           </Typography>
                         </Box>
                         <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 650, fontSize: '0.72rem' }}>

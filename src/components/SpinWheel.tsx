@@ -717,11 +717,11 @@ export default function SpinWheel({ dishes, ratingsMap, plannedMeals, onCelebrat
         </Typography>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
           {[
-            { value: 'all', label: 'Alle tijden ⏳' },
-            { value: 15, label: 'Snel (≤ 15 min)' },
-            { value: 30, label: 'Gemiddeld (≤ 30 min)' },
-            { value: 45, label: 'Uitgebreid (≤ 45 min)' },
-            { value: 60, label: 'Feestelijk (≤ 60 min)' }
+            { value: 'all', label: 'Alle tijden' },
+            { value: 15, label: 'Snel (<= 15 min)' },
+            { value: 30, label: 'Gemiddeld (<= 30 min)' },
+            { value: 45, label: 'Uitgebreid (<= 45 min)' },
+            { value: 60, label: 'Feestelijk (<= 60 min)' }
           ].map((item) => {
             const isSelected = maxPrepTime === item.value;
             return (
@@ -870,7 +870,7 @@ export default function SpinWheel({ dishes, ratingsMap, plannedMeals, onCelebrat
           },
         }}
       >
-        {isSpinning ? 'SPANNEND... 🎰' : 'LAAT HET RAD BESLISSEN!'}
+        {isSpinning ? 'SPANNEND...' : 'LAAT HET RAD BESLISSEN!'}
       </Button>
 
       {/* Restricted dishes lists */}
@@ -961,7 +961,7 @@ export default function SpinWheel({ dishes, ratingsMap, plannedMeals, onCelebrat
                   Gemid. score
                 </Typography>
                 <Typography variant="subtitle1" color="primary" sx={{ fontWeight: 900, mt: 0.2, fontSize: '1.1rem' }}>
-                  {winner ? getDishWeightAndScore(winner).score : '—'}
+                  {winner ? getDishWeightAndScore(winner).score : '-'}
                 </Typography>
               </Box>
               <Box sx={{ width: '1px', alignSelf: 'stretch', backgroundColor: '#F0E0D6' }} />

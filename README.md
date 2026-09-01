@@ -1,20 +1,57 @@
-<div align="center">
-<img width="900" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# Wat eten we
 
-# Run and deploy your AI Studio app
+Wat eten we is een complete gezinsapplicatie om maaltijden te plannen, favoriete gerechten te beheren en keuzestress aan tafel op te lossen met een interactief keuzerad.
 
-This contains everything you need to run your app locally.
+## Over het project
 
-View your app in AI Studio: https://ai.studio/apps/c1e2d320-160c-42ac-915f-2e6c0b30b366
+Deze applicatie helpt gezinnen en huishoudens om eenvoudig recepten te verzamelen, maaltijden per week in te plannen en automatisch een boodschappenlijstje samen te stellen. Het ingebouwde rad van fortuin weegt maaltijden op basis van gezinsbeoordelingen en houdt automatisch rekening met een 7-dagen herhalingsrestrictie.
 
-## Run Locally
+## Functionaliteiten
 
-**Prerequisites:**  Node.js
+- Gezamenlijk kookboek: gerechten toevoegen, bewerken en categoriseren met bereidingstijd, ingrediënten en labels.
+- Interactief keuzerad: dynamisch rad dat rekening houdt met beoordelingen, maaltijdmomenten en bereidingstijd.
+- Weekkalender: maaltijden inplannen voor ontbijt, middag, avond en tussendoor met ingebouwde 7-dagen herhalingsbeveiliging.
+- Slimme boodschappenlijst: automatische categorisering en hoeveelheid-samenvoeging per productgroep.
+- Gezinsleden en profielen: veilige gebruikerskeuze met persoonlijke avatars, kleuren en wachtwoordbeveiliging.
+- Realtime synchronisatie: directe gegevenssynchronisatie tussen apparaten via een geoptimaliseerde synchronisatielaag.
 
+## Beveiliging en privacy
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+- Veilige wachtwoordhashing: wachtwoorden worden server-side versleuteld met salted scrypt hashes.
+- Geen gevoelige gegevens in de browser: wachtwoorden worden niet opgeslagen in localStorage.
+- Atomaire gegevensopslag: betrouwbare bestandsoverschrijving om databasecorruptie te voorkomen.
+- Rate limiting: bescherming tegen geautomatiseerde inlogpogingen op de backend.
+
+## Installatie en starten
+
+### Vereisten
+
+- Node.js 18 of hoger
+- npm 9 of hoger
+
+### Stappen
+
+1. Installeer alle dependencies:
+```bash
+npm install
+```
+
+2. Start de ontwikkelserver:
+```bash
+npm run dev
+```
+
+De applicatie is nu bereikbaar via `http://localhost:3000`.
+
+### Productie build
+
+Om een geoptimaliseerde productiebundel te bouwen:
+
+```bash
+npm run build
+npm start
+```
+
+## Licentie
+
+Dit project is beschikbaar onder de Apache-2.0 licentie.

@@ -3,7 +3,7 @@
     {
       "id": "papa",
       "name": "Papa",
-      "password": "papa",
+      "password": "scrypt:6ac836e32e9c82fd5e3aae4420ceeee2:021ff8f588baa1f318ccca4f6e644848838aa197429e010ded01efd52ef777a9b0b463841c4103ce912cd0c170a50118b40107269dfd32375caae1e4db050f62",
       "avatarColor": "#8F4E00",
       "avatarLetter": "P",
       "avatarIcon": "smile",
@@ -12,7 +12,7 @@
     {
       "id": "mama",
       "name": "Mama",
-      "password": "mama",
+      "password": "scrypt:64de2320f6a10de733fa8cc53980a3af:4443c9c7ea00014062ecb324efec3e5d6aac80ad30acaf8efa56517097fc4f01d86a2c5f63ab4eb2fa2ddd547073bee7c4905491f1d3629ce33b2b4531090802",
       "avatarColor": "#5a7862",
       "avatarLetter": "M",
       "avatarIcon": "heart",
@@ -21,7 +21,7 @@
     {
       "id": "tibo",
       "name": "Tibo",
-      "password": "tibo",
+      "password": "scrypt:ead042a552feb01f24f9ba1195d24294:fe6f9cfad4bd98e7bfcd963d1465efaf5e08547ff5ec64f8a3a94f2ddc047be3e2d524c8571cd67cf5e1ef7ce927f3e1e62cb92be4840beeb60636dc8511c373",
       "avatarColor": "#f28f3b",
       "avatarLetter": "T",
       "avatarIcon": "star",
@@ -30,7 +30,7 @@
     {
       "id": "briek",
       "name": "Briek",
-      "password": "briek",
+      "password": "scrypt:c795681c376648b7dec929136a2036ef:5e2a8cbf59b096a9bc9c858b8eb478f8b4ffac5bd0d79e21a499d11aeb6639c54e9aca6931ab9ded1c38349851d1b2a98ad9416c5fc8728be93348a6a6fe5977",
       "avatarColor": "#9b59b6",
       "avatarLetter": "B",
       "avatarIcon": "crown",
@@ -243,7 +243,7 @@
     {
       "id": "5",
       "name": "Tarwegratin met zonnige groenten",
-      "description": "Klassiek recept voor tarwegratin met zonnige groenten, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor tarwegratin met zonnige groenten, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1518047601542-79f18c655718?w=600&auto=format&fit=crop",
       "tags": [
@@ -255,14 +255,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.423Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "6",
       "name": "Schartong met citroenkorst, pasta en tomatensaus",
-      "description": "Klassiek recept voor schartong met citroenkorst, pasta en tomatensaus, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor schartong met citroenkorst, pasta en tomatensaus, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=600&auto=format&fit=crop",
       "tags": [
@@ -274,14 +274,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.424Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "7",
       "name": "Jagerschotel",
-      "description": "Klassiek recept voor jagerschotel, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor jagerschotel, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1544025162-d76694265947?w=600&auto=format&fit=crop",
       "tags": [
@@ -293,14 +293,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.424Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "8",
       "name": "Schnitzel",
-      "description": "Klassiek recept voor schnitzel, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor schnitzel, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1598908314732-07113901949e?w=600&auto=format&fit=crop",
       "tags": [
@@ -312,14 +312,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.424Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "9",
       "name": "Pensen met appelmoes en patatjes",
-      "description": "Klassiek recept voor pensen met appelmoes en patatjes, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor pensen met appelmoes en patatjes, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1544025162-d76694265947?w=600&auto=format&fit=crop",
       "tags": [
@@ -331,14 +331,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.424Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "10",
       "name": "Spaghetti Colruyt Boni",
-      "description": "Klassiek recept voor spaghetti colruyt boni, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor spaghetti colruyt boni, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=600&auto=format&fit=crop",
       "tags": [
@@ -350,14 +350,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.424Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "11",
       "name": "Rijst met curry",
-      "description": "Klassiek recept voor rijst met curry, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor rijst met curry, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1455619452474-d2be8b1e70cd?w=600&auto=format&fit=crop",
       "tags": [
@@ -369,14 +369,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.424Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "12",
       "name": "Vis met spinazie en kaassaus",
-      "description": "Klassiek recept voor vis met spinazie en kaassaus, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor vis met spinazie en kaassaus, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=600&auto=format&fit=crop",
       "tags": [
@@ -388,14 +388,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.425Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "13",
       "name": "Scampipannetje met broccoli en krieltjes",
-      "description": "Klassiek recept voor scampipannetje met broccoli en krieltjes, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor scampipannetje met broccoli en krieltjes, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=600&auto=format&fit=crop",
       "tags": [
@@ -407,14 +407,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.425Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "14",
       "name": "Vol-au-vent met frietjes",
-      "description": "Klassiek recept voor vol-au-vent met frietjes, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor vol-au-vent met frietjes, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1576107232684-1279f390859f?w=600&auto=format&fit=crop",
       "tags": [
@@ -426,14 +426,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.425Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "15",
       "name": "Vegetarische balletjes en groenten",
-      "description": "Klassiek recept voor vegetarische balletjes en groenten, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor vegetarische balletjes en groenten, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&auto=format&fit=crop",
       "tags": [
@@ -445,14 +445,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.425Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "16",
       "name": "Pasta met tomaat, mascarpone en kip",
-      "description": "Klassiek recept voor pasta met tomaat, mascarpone en kip, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor pasta met tomaat, mascarpone en kip, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=600&auto=format&fit=crop",
       "tags": [
@@ -464,14 +464,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.425Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "17",
       "name": "Bloemkoolgehaktschotel",
-      "description": "Klassiek recept voor bloemkoolgehaktschotel, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor bloemkoolgehaktschotel, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1518047601542-79f18c655718?w=600&auto=format&fit=crop",
       "tags": [
@@ -483,14 +483,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.425Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "18",
       "name": "Worst met appelmoes en patatjes",
-      "description": "Klassiek recept voor worst met appelmoes en patatjes, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor worst met appelmoes en patatjes, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1544025162-d76694265947?w=600&auto=format&fit=crop",
       "tags": [
@@ -502,14 +502,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.425Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "19",
       "name": "Echte lasagne",
-      "description": "Klassiek recept voor echte lasagne, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor echte lasagne, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=600&auto=format&fit=crop",
       "tags": [
@@ -521,14 +521,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.425Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "20",
       "name": "Pitta met pitabroodje en vlees van de batselier",
-      "description": "Klassiek recept voor pitta met pitabroodje en vlees van de batselier, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor pitta met pitabroodje en vlees van de batselier, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&auto=format&fit=crop",
       "tags": [
@@ -540,14 +540,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.425Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "21",
       "name": "Kip met rijst, wortel en paprika in de wok",
-      "description": "Klassiek recept voor kip met rijst, wortel en paprika in de wok, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor kip met rijst, wortel en paprika in de wok, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1598908314732-07113901949e?w=600&auto=format&fit=crop",
       "tags": [
@@ -559,14 +559,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.425Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "22",
       "name": "Macaroni",
-      "description": "Klassiek recept voor macaroni, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor macaroni, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=600&auto=format&fit=crop",
       "tags": [
@@ -578,14 +578,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.426Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "23",
       "name": "Spaghetti Jumbo saus",
-      "description": "Klassiek recept voor spaghetti jumbo saus, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor spaghetti jumbo saus, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=600&auto=format&fit=crop",
       "tags": [
@@ -597,14 +597,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.426Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "24",
       "name": "Ham/kaasburger met witte saus en patatjes",
-      "description": "Klassiek recept voor ham/kaasburger met witte saus en patatjes, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor ham/kaasburger met witte saus en patatjes, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1544025162-d76694265947?w=600&auto=format&fit=crop",
       "tags": [
@@ -616,14 +616,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.426Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "25",
       "name": "Ribbetjes met frietjes en groenten",
-      "description": "Klassiek recept voor ribbetjes met frietjes en groenten, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor ribbetjes met frietjes en groenten, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1544025162-d76694265947?w=600&auto=format&fit=crop",
       "tags": [
@@ -635,14 +635,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.426Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "26",
       "name": "Wraps",
-      "description": "Klassiek recept voor wraps, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor wraps, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&auto=format&fit=crop",
       "tags": [
@@ -654,14 +654,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.426Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "27",
       "name": "Kippenboutjes met rijst en groentenschotel",
-      "description": "Klassiek recept voor kippenboutjes met rijst en groentenschotel, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor kippenboutjes met rijst en groentenschotel, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1598908314732-07113901949e?w=600&auto=format&fit=crop",
       "tags": [
@@ -673,14 +673,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.426Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "28",
       "name": "Vogelnesten met krieltjes",
-      "description": "Klassiek recept voor vogelnesten met krieltjes, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor vogelnesten met krieltjes, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1518047601542-79f18c655718?w=600&auto=format&fit=crop",
       "tags": [
@@ -692,14 +692,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.426Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "29",
       "name": "Kibbeling met patatjes en wortel",
-      "description": "Klassiek recept voor kibbeling met patatjes en wortel, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor kibbeling met patatjes en wortel, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=600&auto=format&fit=crop",
       "tags": [
@@ -711,14 +711,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.426Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "30",
       "name": "Macaronigehaktschotel",
-      "description": "Klassiek recept voor macaronigehaktschotel, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor macaronigehaktschotel, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=600&auto=format&fit=crop",
       "tags": [
@@ -730,14 +730,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.426Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "31",
       "name": "Kipfilet met tomaten en patatjes",
-      "description": "Klassiek recept voor kipfilet met tomaten en patatjes, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor kipfilet met tomaten en patatjes, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1598908314732-07113901949e?w=600&auto=format&fit=crop",
       "tags": [
@@ -749,14 +749,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.426Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "32",
       "name": "Verse Pizza Jumbo",
-      "description": "Klassiek recept voor verse pizza jumbo, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor verse pizza jumbo, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&auto=format&fit=crop",
       "tags": [
@@ -768,14 +768,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.426Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "33",
       "name": "Taco chili con carne",
-      "description": "Klassiek recept voor taco chili con carne, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor taco chili con carne, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&auto=format&fit=crop",
       "tags": [
@@ -787,14 +787,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.426Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "34",
       "name": "Vispannetje met prei, wortel en garnaal",
-      "description": "Klassiek recept voor vispannetje met prei, wortel en garnaal, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor vispannetje met prei, wortel en garnaal, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=600&auto=format&fit=crop",
       "tags": [
@@ -806,14 +806,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.426Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "35",
       "name": "Pasta pesto met kip en Boursin",
-      "description": "Klassiek recept voor pasta pesto met kip en boursin, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor pasta pesto met kip en boursin, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=600&auto=format&fit=crop",
       "tags": [
@@ -825,14 +825,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.426Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "36",
-      "name": "Kip met broccoli en rösti",
-      "description": "Klassiek recept voor kip met broccoli en rösti, geïmporteerd uit de kooklijst van de familie.",
+      "name": "Kip met broccoli en r\u00f6sti",
+      "description": "Klassiek recept voor kip met broccoli en r\u00f6sti, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1598908314732-07113901949e?w=600&auto=format&fit=crop",
       "tags": [
@@ -844,14 +844,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.426Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "37",
       "name": "Tagliatelle met creoolse saus en zeevruchten / Kip",
-      "description": "Klassiek recept voor tagliatelle met creoolse saus en zeevruchten / kip, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor tagliatelle met creoolse saus en zeevruchten / kip, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=600&auto=format&fit=crop",
       "tags": [
@@ -863,14 +863,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.426Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "38",
       "name": "Biefstuk met frieten",
-      "description": "Klassiek recept voor biefstuk met frieten, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor biefstuk met frieten, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1544025162-d76694265947?w=600&auto=format&fit=crop",
       "tags": [
@@ -882,14 +882,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.426Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "39",
       "name": "Blinde vinken",
-      "description": "Klassiek recept voor blinde vinken, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor blinde vinken, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1544025162-d76694265947?w=600&auto=format&fit=crop",
       "tags": [
@@ -901,14 +901,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.426Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "40",
-      "name": "Zalm Haché Parmentier van Sofie",
-      "description": "Klassiek recept voor zalm haché parmentier van sofie, geïmporteerd uit de kooklijst van de familie.",
+      "name": "Zalm Hach\u00e9 Parmentier van Sofie",
+      "description": "Klassiek recept voor zalm hach\u00e9 parmentier van sofie, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=600&auto=format&fit=crop",
       "tags": [
@@ -920,14 +920,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.426Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "41",
       "name": "Gevulde paprika",
-      "description": "Klassiek recept voor gevulde paprika, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor gevulde paprika, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&auto=format&fit=crop",
       "tags": [
@@ -939,14 +939,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.426Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "42",
       "name": "Gebraad diginair",
-      "description": "Klassiek recept voor gebraad diginair, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor gebraad diginair, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1544025162-d76694265947?w=600&auto=format&fit=crop",
       "tags": [
@@ -958,14 +958,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.426Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "43",
       "name": "Visschotel met Orzo",
-      "description": "Klassiek recept voor visschotel met orzo, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor visschotel met orzo, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=600&auto=format&fit=crop",
       "tags": [
@@ -977,14 +977,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.426Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "44",
       "name": "Wok met kip en mie",
-      "description": "Klassiek recept voor wok met kip en mie, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor wok met kip en mie, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1598908314732-07113901949e?w=600&auto=format&fit=crop",
       "tags": [
@@ -996,14 +996,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.426Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "45",
       "name": "Fish pie met prei en zoete aardappel",
-      "description": "Klassiek recept voor fish pie met prei en zoete aardappel, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor fish pie met prei en zoete aardappel, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=600&auto=format&fit=crop",
       "tags": [
@@ -1015,14 +1015,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.426Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "46",
       "name": "Rigatoni met pompoen, paprika, spekjes en gyros in room",
-      "description": "Klassiek recept voor rigatoni met pompoen, paprika, spekjes en gyros in room, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor rigatoni met pompoen, paprika, spekjes en gyros in room, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=600&auto=format&fit=crop",
       "tags": [
@@ -1034,14 +1034,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.426Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "47",
       "name": "Vieze lasagne met ravioli, ricotta, spinazie en ham",
-      "description": "Klassiek recept voor vieze lasagne met ravioli, ricotta, spinazie en ham, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor vieze lasagne met ravioli, ricotta, spinazie en ham, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=600&auto=format&fit=crop",
       "tags": [
@@ -1053,14 +1053,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.426Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "48",
       "name": "Penne met pensen en tomaat",
-      "description": "Klassiek recept voor penne met pensen en tomaat, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor penne met pensen en tomaat, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=600&auto=format&fit=crop",
       "tags": [
@@ -1072,14 +1072,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.426Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "49",
       "name": "Fish pie met zoete aardappel",
-      "description": "Klassiek recept voor fish pie met zoete aardappel, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor fish pie met zoete aardappel, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=600&auto=format&fit=crop",
       "tags": [
@@ -1091,14 +1091,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.426Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "50",
       "name": "Pasta met broccoli en spekjes",
-      "description": "Klassiek recept voor pasta met broccoli en spekjes, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor pasta met broccoli en spekjes, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=600&auto=format&fit=crop",
       "tags": [
@@ -1110,14 +1110,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.426Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "51",
       "name": "Tagliatelle met zalm, Boursin, room en prei",
-      "description": "Klassiek recept voor tagliatelle met zalm, boursin, room en prei, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor tagliatelle met zalm, boursin, room en prei, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=600&auto=format&fit=crop",
       "tags": [
@@ -1129,14 +1129,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.426Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "52",
-      "name": "Steak met rösti en wortel in de oven (tijm & honing)",
-      "description": "Klassiek recept voor steak met rösti en wortel in de oven (tijm & honing), geïmporteerd uit de kooklijst van de familie.",
+      "name": "Steak met r\u00f6sti en wortel in de oven (tijm & honing)",
+      "description": "Klassiek recept voor steak met r\u00f6sti en wortel in de oven (tijm & honing), ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1544025162-d76694265947?w=600&auto=format&fit=crop",
       "tags": [
@@ -1148,14 +1148,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.426Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "53",
       "name": "Aardappel-groentenschotel met bechamelsaus en worst",
-      "description": "Klassiek recept voor aardappel-groentenschotel met bechamelsaus en worst, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor aardappel-groentenschotel met bechamelsaus en worst, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1518047601542-79f18c655718?w=600&auto=format&fit=crop",
       "tags": [
@@ -1167,14 +1167,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.426Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "54",
       "name": "Groentereepjes en aardappel",
-      "description": "Klassiek recept voor groentereepjes en aardappel, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor groentereepjes en aardappel, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&auto=format&fit=crop",
       "tags": [
@@ -1186,14 +1186,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.426Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "55",
       "name": "Kip van het kippenkraam",
-      "description": "Klassiek recept voor kip van het kippenkraam, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor kip van het kippenkraam, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1598908314732-07113901949e?w=600&auto=format&fit=crop",
       "tags": [
@@ -1205,14 +1205,14 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.426Z",
       "addedBy": "Notion Import"
     },
     {
       "id": "56",
       "name": "Zalm met bloemkool-chorizokorstje",
-      "description": "Klassiek recept voor zalm met bloemkool-chorizokorstje, geïmporteerd uit de kooklijst van de familie.",
+      "description": "Klassiek recept voor zalm met bloemkool-chorizokorstje, ge\u00efmporteerd uit de kooklijst van de familie.",
       "cuisine": "Belgisch",
       "imageUrl": "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=600&auto=format&fit=crop",
       "tags": [
@@ -1224,7 +1224,7 @@
         "Warm eten"
       ],
       "ingredients": [],
-      "recipe": "Klik op bewerken om het echte familierecept, ingrediënten en bereidingswijze in te vullen!",
+      "recipe": "Klik op bewerken om het echte familierecept, ingredi\u00ebnten en bereidingswijze in te vullen!",
       "createdAt": "2026-06-19T11:11:59.427Z",
       "addedBy": "Notion Import"
     }

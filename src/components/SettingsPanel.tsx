@@ -17,10 +17,15 @@ import {
   Alert,
   Divider,
   IconButton,
-  Tooltip
+  Tooltip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions
 } from '@mui/material';
 import { 
-  User, Plus, Database, Cloud, RefreshCw, AlertTriangle, HelpCircle, Key, Palette, Image, Check, ChevronRight, Lock
+  User, Plus, Database, Cloud, RefreshCw, AlertTriangle, HelpCircle, Key, Palette, Image, Check, ChevronRight, Lock, Trash2
 } from 'lucide-react';
 import { MealDatabase, isFirestoreFallback } from '../lib/db';
 import { Member } from '../types';
@@ -91,6 +96,11 @@ export default function SettingsPanel({ activeProfile, members, onSwitchProfile,
 
   const [savingProfile, setSavingProfile] = useState(false);
   const [addingMember, setAddingMember] = useState(false);
+
+  // Delete member states
+  const [memberToDelete, setMemberToDelete] = useState<Member | null>(null);
+  const [deletingMember, setDeletingMember] = useState(false);
+  const [deleteMemberError, setDeleteMemberError] = useState('');
 
   // Sync state values on load or user switch
   useEffect(() => {
@@ -208,6 +218,35 @@ export default function SettingsPanel({ activeProfile, members, onSwitchProfile,
       setAddErrorText(e.message || 'Kon gezinslid niet toevoegen.');
     } finally {
       setAddingMember(false);
+    }
+  };
+
+  const handleConfirmDeleteMember = async () => {
+    if (!memberToDelete) return;
+    if (members.length <= 1) {
+      setDeleteMemberError('Er moet minstens één gezinslid bewaard blijven.');
+      return;
+    }
+
+    setDeletingMember(true);
+    setDeleteMemberError('');
+    try {
+      await MealDatabase.deleteMember(memberToDelete.id);
+      const isCurrentActive = memberToDelete.name.toLowerCase() === activeProfile.toLowerCase();
+      setMemberToDelete(null);
+
+      if (isCurrentActive) {
+        const remaining = members.filter(m => m.id !== memberToDelete.id);
+        if (remaining.length > 0) {
+          onSwitchProfile(remaining[0].name);
+        } else {
+          onLogout();
+        }
+      }
+    } catch (err: any) {
+      setDeleteMemberError(err.message || 'Kon gezinslid niet verwijderen.');
+    } finally {
+      setDeletingMember(false);
     }
   };
 
@@ -489,57 +528,92 @@ export default function SettingsPanel({ activeProfile, members, onSwitchProfile,
             Je bent momenteel ingelogd als <b>{activeProfile}</b>. Klik op een ander gezinslid hieronder om over te stappen van profiel:
           </Typography>
 
+          {deleteMemberError && (
+            <Alert severity="error" sx={{ mb: 2, borderRadius: '12px' }}>
+              {deleteMemberError}
+            </Alert>
+          )}
+
           <Box
             sx={{
               display: 'grid',
-              gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)' },
+              gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' },
               gap: 1.5,
               mb: 3,
             }}
           >
             {members.map((member) => {
               const IconComp = member.avatarIcon ? avatarIconsMap[member.avatarIcon] : null;
+              const isActive = activeProfile.toLowerCase() === member.name.toLowerCase();
               return (
                 <Box
                   key={member.id}
-                  onClick={() => onSwitchProfile(member.name)}
                   sx={{
                     display: 'flex',
                     alignItems: 'center',
+                    justifyContent: 'space-between',
                     p: 1.5,
                     borderRadius: '12px',
-                    cursor: 'pointer',
-                    border: activeProfile.toLowerCase() === member.name.toLowerCase() ? '2px solid #8F4E00' : '1px solid #F0E0D6',
-                    backgroundColor: activeProfile.toLowerCase() === member.name.toLowerCase() ? '#FFDCC0' : 'transparent',
+                    border: isActive ? '2px solid #8F4E00' : '1px solid #F0E0D6',
+                    backgroundColor: isActive ? '#FFDCC0' : 'transparent',
                     transition: 'all 0.2s',
                     '&:hover': {
-                      backgroundColor: 'rgba(0,0,0,0.01)',
+                      backgroundColor: isActive ? '#FFDCC0' : 'rgba(0,0,0,0.01)',
                       transform: 'translateY(-2px)'
                     }
                   }}
                 >
-                  <Avatar
+                  <Box
+                    onClick={() => onSwitchProfile(member.name)}
                     sx={{
-                      width: 28,
-                      height: 28,
-                      fontSize: '0.8rem',
-                      fontWeight: 'bold',
-                      backgroundColor: member.avatarColor || getAvatarColor(member.name),
-                      color: '#ffffff',
-                      mr: 1.5
+                      display: 'flex',
+                      alignItems: 'center',
+                      cursor: 'pointer',
+                      flex: 1,
+                      overflow: 'hidden'
                     }}
                   >
-                    {IconComp ? (
-                      <IconComp size={15} />
-                    ) : (
-                      member.avatarLetter || member.name.charAt(0).toUpperCase()
+                    <Avatar
+                      sx={{
+                        width: 28,
+                        height: 28,
+                        fontSize: '0.8rem',
+                        fontWeight: 'bold',
+                        backgroundColor: member.avatarColor || getAvatarColor(member.name),
+                        color: '#ffffff',
+                        mr: 1.5,
+                        flexShrink: 0
+                      }}
+                    >
+                      {IconComp ? (
+                        <IconComp size={15} />
+                      ) : (
+                        member.avatarLetter || member.name.charAt(0).toUpperCase()
+                      )}
+                    </Avatar>
+                    <Typography variant="body2" sx={{ fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {member.name}
+                    </Typography>
+                    {isActive && (
+                      <Chip size="small" label="Actief" color="primary" sx={{ ml: 1, height: 16, fontSize: '0.65rem', fontWeight: 800 }} />
                     )}
-                  </Avatar>
-                  <Typography variant="body2" sx={{ fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '80px' }}>
-                    {member.name}
-                  </Typography>
-                  {activeProfile.toLowerCase() === member.name.toLowerCase() && (
-                    <Chip size="small" label="Actief" color="primary" sx={{ ml: 'auto', height: 16, fontSize: '0.65rem', fontWeight: 800 }} />
+                  </Box>
+
+                  {members.length > 1 && (
+                    <Tooltip title={`Verwijder ${member.name}`}>
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteMemberError('');
+                          setMemberToDelete(member);
+                        }}
+                        sx={{ ml: 1, p: 0.5 }}
+                      >
+                        <Trash2 size={16} />
+                      </IconButton>
+                    </Tooltip>
                   )}
                 </Box>
               );
@@ -627,6 +701,42 @@ export default function SettingsPanel({ activeProfile, members, onSwitchProfile,
           </Grid>
         </CardContent>
       </Card>
+
+      {/* Delete Member Confirmation Modal */}
+      <Dialog
+        open={Boolean(memberToDelete)}
+        onClose={() => setMemberToDelete(null)}
+        slotProps={{
+          paper: { sx: { borderRadius: '16px', p: 1 } }
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 800 }}>
+          Gezinslid verwijderen?
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Weet je zeker dat je <strong>{memberToDelete?.name}</strong> wilt verwijderen van de gezinstafel? Alle individuele beoordelingen van dit lid worden eveneens opgeruimd.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button
+            onClick={() => setMemberToDelete(null)}
+            color="inherit"
+            disabled={deletingMember}
+          >
+            Annuleren
+          </Button>
+          <Button
+            onClick={handleConfirmDeleteMember}
+            color="error"
+            variant="contained"
+            disabled={deletingMember}
+            sx={{ borderRadius: '100px' }}
+          >
+            {deletingMember ? 'Verwijderen...' : 'Ja, verwijder lid'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
